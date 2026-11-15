@@ -5,7 +5,14 @@ import { isAllowedEmail, isGoogleConfigured } from "@/lib/allowlist";
 import { normalizeEmail } from "@/lib/utils";
 
 const providers: NextAuthConfig["providers"] = isGoogleConfigured()
-  ? [Google]
+  ? [
+      Google({
+        // PKCE's code verifier cookie can be dropped on serverless hosts
+        // (Vercel), which surfaces as "Invalid code verifier". Rely on the
+        // state check instead, which is sufficient for Google OAuth.
+        checks: ["state"],
+      }),
+    ]
   : [];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
