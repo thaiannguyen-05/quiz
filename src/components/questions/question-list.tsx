@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   KeyboardSensor,
@@ -33,7 +33,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
-import type { QuestionItem } from "@/components/questions/question-editor-dialog";
+import { markSubjectUpdated } from "@/lib/query/cache";
+import { queryKeys } from "@/lib/query/keys";
+import type { QuestionItem, SubjectPageData } from "@/lib/query/types";
 import { cn } from "@/lib/utils";
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -146,23 +148,62 @@ function SortableQuestionRow({
 }
 
 export function QuestionList({
+  libraryId,
   subjectId,
   questions,
   onAdd,
   onEdit,
   onDelete,
 }: {
+  libraryId: string;
   subjectId: string;
   questions: QuestionItem[];
   onAdd: () => void;
   onEdit: (question: QuestionItem) => void;
   onDelete: (question: QuestionItem) => void;
 }) {
-  const [items, applyOptimisticOrder] = useOptimistic(
-    questions,
-    (_current, next: QuestionItem[]) => next,
-  );
-  const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient();
+  const subjectKey = queryKeys.subject(libraryId, subjectId);
+
+  const reorderMutation = useMutation({
+    mutationFn: reorderQuestions,
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: subjectKey });
+      const previous = queryClient.getQueryData<SubjectPageData>(subjectKey);
+
+      if (previous) {
+        const byId = new Map(
+          previous.questions.map((question) => [question.id, question]),
+        );
+        queryClient.setQueryData<SubjectPageData>(subjectKey, {
+          ...previous,
+          questions: variables.questionIds
+            .map((id) => byId.get(id))
+            .filter((question): question is QuestionItem => Boolean(question))
+            .map((question, index) => ({ ...question, position: index })),
+        });
+      }
+
+      return { previous };
+    },
+    onSuccess: (result, _variables, context) => {
+      if (!result.ok) {
+        if (context?.previous) {
+          queryClient.setQueryData(subjectKey, context.previous);
+        }
+        toast.error(result.error);
+        return;
+      }
+
+      markSubjectUpdated(queryClient, libraryId, subjectId);
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(subjectKey, context.previous);
+      }
+      toast.error("Could not save the new order.");
+    },
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -173,33 +214,21 @@ export function QuestionList({
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-    if (!over || active.id === over.id || isPending) return;
+    if (!over || active.id === over.id || reorderMutation.isPending) return;
 
-    const oldIndex = items.findIndex((item) => item.id === active.id);
-    const newIndex = items.findIndex((item) => item.id === over.id);
+    const oldIndex = questions.findIndex((item) => item.id === active.id);
+    const newIndex = questions.findIndex((item) => item.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const nextItems = arrayMove(items, oldIndex, newIndex);
+    const nextItems = arrayMove(questions, oldIndex, newIndex);
 
-    startTransition(async () => {
-      applyOptimisticOrder(nextItems);
-
-      try {
-        const result = await reorderQuestions({
-          subjectId,
-          questionIds: nextItems.map((item) => item.id),
-        });
-
-        if (!result.ok) {
-          toast.error(result.error);
-        }
-      } catch {
-        toast.error("Could not save the new order.");
-      }
+    reorderMutation.mutate({
+      subjectId,
+      questionIds: nextItems.map((item) => item.id),
     });
   }
 
-  if (items.length === 0) {
+  if (questions.length === 0) {
     return (
       <EmptyState
         icon={ListChecks}
@@ -220,12 +249,12 @@ export function QuestionList({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-[#fbfaff] px-4 py-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-ink-soft">
           <span>
-            {items.length} question{items.length === 1 ? "" : "s"}
+            {questions.length} question{questions.length === 1 ? "" : "s"}
           </span>
           <span className="size-1 rounded-full bg-line-strong" />
           <span className="text-ink-faint">Drag the handle to reorder</span>
         </div>
-        {isPending ? (
+        {reorderMutation.isPending ? (
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-faint">
             <Spinner className="size-3.5" />
             Saving order…
@@ -240,16 +269,16 @@ export function QuestionList({
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={items.map((item) => item.id)}
+          items={questions.map((item) => item.id)}
           strategy={verticalListSortingStrategy}
         >
           <ul>
-            {items.map((question, index) => (
+            {questions.map((question, index) => (
               <SortableQuestionRow
                 key={question.id}
                 question={question}
                 index={index}
-                disabled={isPending}
+                disabled={reorderMutation.isPending}
                 onEdit={onEdit}
                 onDelete={onDelete}
               />

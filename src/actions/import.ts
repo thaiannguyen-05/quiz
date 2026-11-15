@@ -1,8 +1,5 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
-import { revalidatePath } from "next/cache";
-
 import { failure, isUniqueConstraintError } from "@/lib/action-utils";
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
@@ -13,7 +10,14 @@ import {
 } from "@/lib/validation";
 
 export type CommitImportResult =
-  | { ok: true; subjectId: string; subjectName: string }
+  | {
+      ok: true;
+      subjectId: string;
+      subjectName: string;
+      questionCount: number;
+      totalSeconds: number;
+      previousQuestionCount: number;
+    }
   | {
       ok: false;
       error: string;
@@ -21,29 +25,6 @@ export type CommitImportResult =
       existingSubjectId?: string;
       existingQuestionCount?: number;
     };
-
-function buildQuestions(
-  questions: ImportQuestionInput[],
-  startPosition = 0,
-): Prisma.QuestionCreateWithoutSubjectInput[] {
-  return questions.map((question, index) => ({
-    text: question.text,
-    timeLimit: question.timeLimit,
-    position: startPosition + index,
-    answers: {
-      create: question.answers.map((text, answerIndex) => ({
-        text,
-        position: answerIndex,
-        isCorrect: question.correctIndices.includes(answerIndex),
-      })),
-    },
-  }));
-}
-
-function withSuffix(base: string, suffix: string) {
-  const available = Math.max(1, 80 - suffix.length);
-  return `${base.slice(0, available)}${suffix}`;
-}
 
 async function findAvailableSubjectName(libraryId: string, base: string) {
   const subjects = await db.subject.findMany({
@@ -55,13 +36,15 @@ async function findAvailableSubjectName(libraryId: string, base: string) {
   if (!names.has(base)) return base;
 
   let suffixNumber = 2;
-  while (
-    names.has(withSuffix(base, ` (${suffixNumber})`))
-  ) {
+  while (true) {
+    const suffix = ` (${suffixNumber})`;
+    const candidate = `${base.slice(
+      0,
+      Math.max(1, 80 - suffix.length),
+    )}${suffix}`;
+    if (!names.has(candidate)) return candidate;
     suffixNumber += 1;
   }
-
-  return withSuffix(base, ` (${suffixNumber})`);
 }
 
 export async function commitImport(input: {
@@ -109,60 +92,96 @@ export async function commitImport(input: {
   try {
     const result = await db.$transaction(
       async (tx) => {
+        let subjectId: string;
+        let finalName = subjectName;
+        let startPosition = 0;
+
         if (existing && mode === "replace") {
           await tx.question.deleteMany({ where: { subjectId: existing.id } });
-          return tx.subject.update({
+          await tx.subject.update({
             where: { id: existing.id },
-            data: {
-              name: subjectName,
-              questions: { create: buildQuestions(questions) },
-            },
-            select: { id: true, name: true },
+            data: { name: subjectName, updatedAt: new Date() },
           });
-        }
-
-        if (existing && mode === "append") {
+          subjectId = existing.id;
+        } else if (existing && mode === "append") {
           const lastQuestion = await tx.question.findFirst({
             where: { subjectId: existing.id },
             orderBy: { position: "desc" },
             select: { position: true },
           });
-          const startPosition = (lastQuestion?.position ?? -1) + 1;
-
-          return tx.subject.update({
+          startPosition = (lastQuestion?.position ?? -1) + 1;
+          await tx.subject.update({
             where: { id: existing.id },
-            data: {
-              questions: {
-                create: buildQuestions(questions, startPosition),
-              },
-            },
+            data: { updatedAt: new Date() },
+          });
+          subjectId = existing.id;
+        } else {
+          if (mode === "new" && existing) {
+            finalName = await findAvailableSubjectName(library.id, subjectName);
+          }
+          const created = await tx.subject.create({
+            data: { libraryId: library.id, name: finalName },
             select: { id: true, name: true },
           });
+          subjectId = created.id;
+          finalName = created.name;
         }
 
-        const finalName =
-          mode === "new" && existing
-            ? await findAvailableSubjectName(library.id, subjectName)
-            : subjectName;
-
-        return tx.subject.create({
-          data: {
-            libraryId: library.id,
-            name: finalName,
-            questions: { create: buildQuestions(questions) },
-          },
-          select: { id: true, name: true },
+        // Batch insert questions (createManyAndReturn gives us their ids).
+        const createdQuestions = await tx.question.createManyAndReturn({
+          data: questions.map((question, index) => ({
+            subjectId,
+            text: question.text,
+            timeLimit: question.timeLimit,
+            position: startPosition + index,
+          })),
+          select: { id: true, position: true },
         });
+
+        const orderedQuestions = [...createdQuestions].sort(
+          (left, right) => left.position - right.position,
+        );
+
+        // Batch insert answers for all questions in one statement.
+        const answerData = orderedQuestions.flatMap((createdQuestion, index) => {
+          const question = questions[index];
+          return question.answers.map((text, answerIndex) => ({
+            questionId: createdQuestion.id,
+            text,
+            position: answerIndex,
+            isCorrect: question.correctIndices.includes(answerIndex),
+          }));
+        });
+
+        if (answerData.length > 0) {
+          await tx.answer.createMany({ data: answerData });
+        }
+
+        return { id: subjectId, name: finalName };
       },
       { timeout: 20_000 },
     );
 
-    revalidatePath("/libraries");
-    revalidatePath(`/libraries/${library.id}`);
-    revalidatePath(`/libraries/${library.id}/subjects/${result.id}`);
-    revalidatePath(`/play/${library.id}/${result.id}`);
+    const summary = await db.subject.findUniqueOrThrow({
+      where: { id: result.id },
+      select: {
+        _count: { select: { questions: true } },
+        questions: { select: { timeLimit: true } },
+      },
+    });
 
-    return { ok: true, subjectId: result.id, subjectName: result.name };
+    return {
+      ok: true,
+      subjectId: result.id,
+      subjectName: result.name,
+      questionCount: summary._count.questions,
+      totalSeconds: summary.questions.reduce(
+        (total, question) => total + question.timeLimit,
+        0,
+      ),
+      previousQuestionCount:
+        existing && existing.id === result.id ? existing._count.questions : 0,
+    };
   } catch (error) {
     if (isUniqueConstraintError(error)) {
       return {

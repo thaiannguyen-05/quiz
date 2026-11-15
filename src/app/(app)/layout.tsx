@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { LogOut, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
-import { signOutAction } from "@/actions/auth";
 import { AppNav } from "@/components/app-nav";
 import { Logo } from "@/components/logo";
-import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/sign-out-button";
 import { requireUser } from "@/lib/auth-helpers";
 import { initials } from "@/lib/utils";
 
@@ -57,17 +56,7 @@ export default async function AppLayout({
                 {user.email}
               </p>
             </div>
-            <form action={signOutAction}>
-              <Button
-                type="submit"
-                variant="ghost"
-                size="icon"
-                aria-label="Sign out"
-                title="Sign out"
-              >
-                <LogOut className="size-4" />
-              </Button>
-            </form>
+            <SignOutButton />
           </div>
         </div>
       </aside>
@@ -82,16 +71,7 @@ export default async function AppLayout({
             >
               Libraries
             </Link>
-            <form action={signOutAction}>
-              <Button
-                type="submit"
-                variant="ghost"
-                size="icon"
-                aria-label="Sign out"
-              >
-                <LogOut className="size-4" />
-              </Button>
-            </form>
+            <SignOutButton />
           </div>
         </div>
       </header>

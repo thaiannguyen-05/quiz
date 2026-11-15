@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Clock3,
+  FileUp,
   ListChecks,
   Pencil,
   Play,
@@ -16,32 +18,33 @@ import { toast } from "sonner";
 
 import { deleteSubject, renameSubject } from "@/actions/subjects";
 import { deleteQuestion } from "@/actions/questions";
+import { ImportDialog } from "@/components/import/import-dialog";
 import {
   QuestionEditorDialog,
-  type QuestionItem,
 } from "@/components/questions/question-editor-dialog";
 import { QuestionList } from "@/components/questions/question-list";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { NameDialog } from "@/components/ui/name-dialog";
+import {
+  removeQuestionFromCache,
+  removeSubjectFromCache,
+  renameSubjectInCache,
+} from "@/lib/query/cache";
+import { subjectQueryOptions } from "@/lib/query/options";
+import type { QuestionItem, SubjectPageData } from "@/lib/query/types";
 import { formatMinutes } from "@/lib/utils";
 
 export function SubjectView({
-  library,
-  subject,
-  questions,
+  initialData,
 }: {
-  library: { id: string; name: string };
-  subject: {
-    id: string;
-    name: string;
-    createdLabel: string;
-  };
-  questions: QuestionItem[];
+  initialData: SubjectPageData;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [editorOpen, setEditorOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<QuestionItem | null>(
     null,
   );
@@ -49,6 +52,78 @@ export function SubjectView({
     useState<QuestionItem | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteSubjectOpen, setDeleteSubjectOpen] = useState(false);
+
+  const { data } = useQuery({
+    ...subjectQueryOptions(
+      initialData.library.id,
+      initialData.subject.id,
+    ),
+    initialData,
+  });
+
+  const { library, subject, questions } = data;
+
+  const renameSubjectMutation = useMutation({
+    mutationFn: renameSubject,
+    onSuccess: (result, variables) => {
+      if (!result.ok) return;
+      renameSubjectInCache(
+        queryClient,
+        library.id,
+        variables.id,
+        variables.name,
+      );
+      toast.success("Subject renamed");
+    },
+  });
+
+  const deleteQuestionMutation = useMutation({
+    mutationFn: deleteQuestion,
+    onSuccess: (result, variables) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+
+      const target = questions.find(
+        (question) => question.id === variables.questionId,
+      );
+      if (target) {
+        removeQuestionFromCache(
+          queryClient,
+          library.id,
+          subject.id,
+          target,
+        );
+      }
+      toast.success("Question deleted");
+      setDeleteQuestionTarget(null);
+    },
+    onError: () => {
+      toast.error("Could not delete the question.");
+    },
+  });
+
+  const deleteSubjectMutation = useMutation({
+    mutationFn: deleteSubject,
+    onSuccess: (result, variables) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      removeSubjectFromCache(
+        queryClient,
+        library.id,
+        variables.id,
+        questions.length,
+      );
+      toast.success("Subject deleted");
+      router.push(`/libraries/${library.id}`);
+    },
+    onError: () => {
+      toast.error("Could not delete the subject.");
+    },
+  });
 
   const totalSeconds = questions.reduce(
     (total, question) => total + question.timeLimit,
@@ -129,6 +204,10 @@ export function SubjectView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => setImportOpen(true)}>
+            <FileUp className="size-4" />
+            Import CSV
+          </Button>
           <Button variant="secondary" onClick={openAddQuestion}>
             <Plus className="size-4" />
             Add question
@@ -169,6 +248,7 @@ export function SubjectView({
 
       <div className="mt-4">
         <QuestionList
+          libraryId={library.id}
           subjectId={subject.id}
           questions={questions}
           onAdd={openAddQuestion}
@@ -180,8 +260,20 @@ export function SubjectView({
       <QuestionEditorDialog
         open={editorOpen}
         onClose={() => setEditorOpen(false)}
+        libraryId={library.id}
         subjectId={subject.id}
         question={editingQuestion}
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        libraries={[{ id: library.id, name: library.name }]}
+        defaultLibraryId={library.id}
+        defaultSubjectName={subject.name}
+        lockLibrary
+        lockSubjectName
+        currentSubjectId={subject.id}
       />
 
       <NameDialog
@@ -191,14 +283,9 @@ export function SubjectView({
         label="Subject name"
         initialValue={subject.name}
         submitLabel="Save changes"
-        onSubmit={async (name) => {
-          const result = await renameSubject({ id: subject.id, name });
-          if (result.ok) {
-            toast.success("Subject renamed");
-            router.refresh();
-          }
-          return result;
-        }}
+        onSubmit={(name) =>
+          renameSubjectMutation.mutateAsync({ id: subject.id, name })
+        }
       />
 
       <ConfirmDialog
@@ -215,15 +302,12 @@ export function SubjectView({
         confirmLabel="Delete question"
         onConfirm={async () => {
           if (!deleteQuestionTarget) return;
-          const result = await deleteQuestion({
-            questionId: deleteQuestionTarget.id,
-          });
-          if (result.ok) {
-            toast.success("Question deleted");
-            setDeleteQuestionTarget(null);
-            router.refresh();
-          } else {
-            toast.error(result.error);
+          try {
+            await deleteQuestionMutation.mutateAsync({
+              questionId: deleteQuestionTarget.id,
+            });
+          } catch {
+            toast.error("Could not delete the question.");
           }
         }}
       />
@@ -237,13 +321,10 @@ export function SubjectView({
         } will be permanently deleted.`}
         confirmLabel="Delete subject"
         onConfirm={async () => {
-          const result = await deleteSubject({ id: subject.id });
-          if (result.ok) {
-            toast.success("Subject deleted");
-            router.push(`/libraries/${library.id}`);
-            router.refresh();
-          } else {
-            toast.error(result.error);
+          try {
+            await deleteSubjectMutation.mutateAsync({ id: subject.id });
+          } catch {
+            toast.error("Could not delete the subject.");
           }
         }}
       />

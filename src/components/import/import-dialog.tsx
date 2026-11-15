@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -30,15 +31,19 @@ import {
   subjectNameFromFileName,
   type CsvParseResult,
 } from "@/lib/csv";
+import { applyImportToCache } from "@/lib/query/cache";
+import type { LibraryOption } from "@/lib/query/types";
 import { cn } from "@/lib/utils";
-
-type LibraryOption = { id: string; name: string };
 
 type ImportDialogProps = {
   open: boolean;
   onClose: () => void;
   libraries: LibraryOption[];
   defaultLibraryId: string;
+  defaultSubjectName?: string;
+  lockLibrary?: boolean;
+  lockSubjectName?: boolean;
+  currentSubjectId?: string;
 };
 
 type ConflictState = {
@@ -71,18 +76,22 @@ function ImportDialogContent({
   onClose,
   libraries,
   defaultLibraryId,
+  defaultSubjectName,
+  lockLibrary = false,
+  lockSubjectName = false,
+  currentSubjectId,
 }: ImportDialogProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<"pick" | "preview">("pick");
   const [libraryId, setLibraryId] = useState(defaultLibraryId);
   const [file, setFile] = useState<File | null>(null);
-  const [subjectName, setSubjectName] = useState("");
+  const [subjectName, setSubjectName] = useState(defaultSubjectName ?? "");
   const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
   const [included, setIncluded] = useState<Set<number>>(new Set());
   const [parsing, setParsing] = useState(false);
-  const [committing, setCommitting] = useState(false);
   const [conflict, setConflict] = useState<ConflictState | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -106,6 +115,45 @@ function ImportDialogContent({
   const allValidSelected =
     validQuestions.length > 0 && selectedQuestions.length === validQuestions.length;
 
+  const importMutation = useMutation({
+    mutationFn: commitImport,
+    onSuccess: (result, variables) => {
+      if (result.ok) {
+        applyImportToCache(queryClient, variables.libraryId, {
+          ...result,
+          mode: variables.mode,
+        });
+        toast.success(
+          `Imported ${variables.questions.length} question${
+            variables.questions.length === 1 ? "" : "s"
+          } into “${result.subjectName}”`,
+        );
+        onClose();
+        if (!currentSubjectId || result.subjectId !== currentSubjectId) {
+          router.push(
+            `/libraries/${variables.libraryId}/subjects/${result.subjectId}`,
+          );
+        }
+        return;
+      }
+
+      if (result.code === "NAME_EXISTS" && result.existingSubjectId) {
+        setConflict({
+          existingSubjectId: result.existingSubjectId,
+          existingQuestionCount: result.existingQuestionCount ?? 0,
+        });
+        return;
+      }
+
+      toast.error(result.error);
+    },
+    onError: () => {
+      toast.error("The import failed. Please try again.");
+    },
+  });
+
+  const committing = importMutation.isPending;
+
   async function handleFile(nextFile: File | undefined) {
     if (!nextFile) return;
     if (!nextFile.name.toLowerCase().endsWith(".csv")) {
@@ -120,7 +168,9 @@ function ImportDialogContent({
     try {
       const result = await parseQuizFile(nextFile);
       setParseResult(result);
-      setSubjectName(subjectNameFromFileName(nextFile.name));
+      if (!lockSubjectName) {
+        setSubjectName(subjectNameFromFileName(nextFile.name));
+      }
       setIncluded(
         new Set(
           result.questions
@@ -165,7 +215,7 @@ function ImportDialogContent({
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  async function submitImport(mode?: "new" | "replace" | "append") {
+  function submitImport(mode?: "new" | "replace" | "append") {
     if (!parseResult || selectedQuestions.length === 0) {
       toast.error("Select at least one valid question.");
       return;
@@ -175,48 +225,19 @@ function ImportDialogContent({
       return;
     }
 
-    setCommitting(true);
     setConflict(null);
 
-    try {
-      const result = await commitImport({
-        libraryId,
-        subjectName: subjectName.trim(),
-        mode,
-        questions: selectedQuestions.map((question) => ({
-          text: question.text,
-          answers: question.answers,
-          correctIndices: question.correctIndices,
-          timeLimit: question.timeLimit,
-        })),
-      });
-
-      if (result.ok) {
-        toast.success(
-          `Imported ${selectedQuestions.length} question${
-            selectedQuestions.length === 1 ? "" : "s"
-          } into “${result.subjectName}”`,
-        );
-        onClose();
-        router.push(`/libraries/${libraryId}/subjects/${result.subjectId}`);
-        router.refresh();
-        return;
-      }
-
-      if (result.code === "NAME_EXISTS" && result.existingSubjectId) {
-        setConflict({
-          existingSubjectId: result.existingSubjectId,
-          existingQuestionCount: result.existingQuestionCount ?? 0,
-        });
-        return;
-      }
-
-      toast.error(result.error);
-    } catch {
-      toast.error("The import failed. Please try again.");
-    } finally {
-      setCommitting(false);
-    }
+    importMutation.mutate({
+      libraryId,
+      subjectName: subjectName.trim(),
+      mode,
+      questions: selectedQuestions.map((question) => ({
+        text: question.text,
+        answers: question.answers,
+        correctIndices: question.correctIndices,
+        timeLimit: question.timeLimit,
+      })),
+    });
   }
 
   return (
@@ -237,8 +258,8 @@ function ImportDialogContent({
                 id="import-library"
                 value={libraryId}
                 onChange={(event) => setLibraryId(event.target.value)}
-                className="h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm font-medium text-ink shadow-[inset_0_1px_1px_rgba(29,26,51,0.02)] focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/10"
-                disabled={parsing}
+                className="h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm font-medium text-ink shadow-[inset_0_1px_1px_rgba(29,26,51,0.02)] focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
+                disabled={parsing || lockLibrary}
               >
                 {libraries.map((library) => (
                   <option key={library.id} value={library.id}>
@@ -346,7 +367,7 @@ function ImportDialogContent({
                   setSubjectName(event.target.value);
                   setConflict(null);
                 }}
-                disabled={committing}
+                disabled={committing || lockSubjectName}
               />
             </div>
             <div className="space-y-1.5 sm:w-56">
@@ -358,8 +379,8 @@ function ImportDialogContent({
                   setLibraryId(event.target.value);
                   setConflict(null);
                 }}
-                className="h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm font-medium text-ink focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/10"
-                disabled={committing}
+                className="h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm font-medium text-ink focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
+                disabled={committing || lockLibrary}
               >
                 {libraries.map((library) => (
                   <option key={library.id} value={library.id}>

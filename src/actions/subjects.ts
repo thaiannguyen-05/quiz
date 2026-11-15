@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { failure, isUniqueConstraintError } from "@/lib/action-utils";
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
@@ -36,9 +34,6 @@ export async function createSubject(input: {
       data: { libraryId: library.id, name: parsed.data },
       select: { id: true },
     });
-
-    revalidatePath("/libraries");
-    revalidatePath(`/libraries/${library.id}`);
 
     return { ok: true, id: subject.id };
   } catch (error) {
@@ -81,10 +76,6 @@ export async function renameSubject(input: {
     throw error;
   }
 
-  revalidatePath("/libraries");
-  revalidatePath(`/libraries/${subject.libraryId}`);
-  revalidatePath(`/libraries/${subject.libraryId}/subjects/${subject.id}`);
-
   return { ok: true };
 }
 
@@ -95,7 +86,7 @@ export async function deleteSubject(input: {
 
   const subject = await db.subject.findFirst({
     where: { id: input.id, library: { ownerId: user.id } },
-    select: { id: true, libraryId: true },
+    select: { id: true },
   });
 
   if (!subject) {
@@ -103,9 +94,6 @@ export async function deleteSubject(input: {
   }
 
   await db.subject.delete({ where: { id: subject.id } });
-
-  revalidatePath("/libraries");
-  revalidatePath(`/libraries/${subject.libraryId}`);
 
   return { ok: true };
 }

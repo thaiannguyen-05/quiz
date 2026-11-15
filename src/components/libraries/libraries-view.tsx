@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   BookOpen,
@@ -24,14 +25,13 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NameDialog } from "@/components/ui/name-dialog";
-
-export type LibrarySummary = {
-  id: string;
-  name: string;
-  subjectCount: number;
-  questionCount: number;
-  createdLabel: string;
-};
+import {
+  addLibraryToCache,
+  removeLibraryFromCache,
+  renameLibraryInCache,
+} from "@/lib/query/cache";
+import { librariesQueryOptions } from "@/lib/query/options";
+import type { LibrarySummary } from "@/lib/query/types";
 
 const COVERS = [
   "from-[#6d5cff] via-[#7f6dff] to-[#b2a8ff]",
@@ -50,13 +50,14 @@ function plural(count: number, word: string) {
 }
 
 export function LibrariesView({
-  libraries,
+  initialLibraries,
   firstName,
 }: {
-  libraries: LibrarySummary[];
+  initialLibraries: LibrarySummary[];
   firstName: string;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<LibrarySummary | null>(
     null,
@@ -64,6 +65,49 @@ export function LibrariesView({
   const [deleteTarget, setDeleteTarget] = useState<LibrarySummary | null>(
     null,
   );
+
+  const { data: libraries } = useQuery({
+    ...librariesQueryOptions(),
+    initialData: initialLibraries,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createLibrary,
+    onSuccess: (result, variables) => {
+      if (!result.ok) return;
+      addLibraryToCache(queryClient, {
+        id: result.id,
+        name: variables.name,
+      });
+      toast.success("Library created");
+      router.push(`/libraries/${result.id}`);
+    },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: renameLibrary,
+    onSuccess: (result, variables) => {
+      if (!result.ok) return;
+      renameLibraryInCache(queryClient, variables.id, variables.name);
+      toast.success("Library renamed");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteLibrary,
+    onSuccess: (result, variables) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      removeLibraryFromCache(queryClient, variables.id);
+      toast.success("Library deleted");
+      setDeleteTarget(null);
+    },
+    onError: () => {
+      toast.error("Could not delete the library.");
+    },
+  });
 
   const subjectCount = libraries.reduce(
     (total, library) => total + library.subjectCount,
@@ -242,14 +286,7 @@ export function LibrariesView({
         label="Library name"
         placeholder="e.g. Data Analysis — Semester 1"
         submitLabel="Create library"
-        onSubmit={async (name) => {
-          const result = await createLibrary({ name });
-          if (result.ok) {
-            toast.success("Library created");
-            router.push(`/libraries/${result.id}`);
-          }
-          return result;
-        }}
+        onSubmit={(name) => createMutation.mutateAsync({ name })}
       />
 
       <NameDialog
@@ -260,13 +297,10 @@ export function LibrariesView({
         initialValue={renameTarget?.name ?? ""}
         submitLabel="Save changes"
         onSubmit={async (name) => {
-          if (!renameTarget) return { ok: false as const, error: "Not found." };
-          const result = await renameLibrary({ id: renameTarget.id, name });
-          if (result.ok) {
-            toast.success("Library renamed");
-            router.refresh();
+          if (!renameTarget) {
+            return { ok: false as const, error: "Library not found." };
           }
-          return result;
+          return renameMutation.mutateAsync({ id: renameTarget.id, name });
         }}
       />
 
@@ -285,13 +319,10 @@ export function LibrariesView({
         confirmLabel="Delete library"
         onConfirm={async () => {
           if (!deleteTarget) return;
-          const result = await deleteLibrary({ id: deleteTarget.id });
-          if (result.ok) {
-            toast.success("Library deleted");
-            setDeleteTarget(null);
-            router.refresh();
-          } else {
-            toast.error(result.error);
+          try {
+            await deleteMutation.mutateAsync({ id: deleteTarget.id });
+          } catch {
+            toast.error("Could not delete the library.");
           }
         }}
       />

@@ -4,8 +4,8 @@ A personal study app for turning question banks into quick practice rounds.
 Organise quizzes into **Libraries → Subjects → Questions**, import Blooket-style
 CSV files, and practise with optional shuffling and a countdown timer.
 
-Built with Next.js 16 (App Router), Auth.js v5, Prisma + PostgreSQL, Tailwind
-CSS v4, and dnd-kit.
+Built with Next.js 16 (App Router), Auth.js v5, Prisma + PostgreSQL, TanStack
+Query, Tailwind CSS v4, and dnd-kit.
 
 ## Features
 
@@ -172,7 +172,9 @@ src/
     api/auth/            Auth.js route handler
     login/               Sign-in page
   components/            UI, import dialog, question editor/list, quiz player
-  lib/                   Auth, Prisma client, CSV parser, validation, helpers
+  lib/
+    query/               TanStack Query keys, options, cache updates, server loaders
+    ...                  Auth, Prisma client, CSV parser, validation, helpers
 CONTEXT.md               Domain glossary (Library, Subject, Question, Quiz session)
 ```
 
@@ -186,6 +188,10 @@ CONTEXT.md               Domain glossary (Library, Subject, Question, Quiz sessi
 - A wrong answer or timeout reveals the correct answers and waits for **Continue**.
 - Turning off the countdown timer gives untimed practice; the per-question time
   limit is still used when the timer is on.
+
+## Client cache
+
+Pages render their initial data on the server and hydrate TanStack Query with it through `initialData`. The browser cache (`staleTime: Infinity`) is then the source of truth: create, rename, delete, reorder, and import mutations write the affected query entries directly with `queryClient.setQueryData`. The UI picks up changes from the cache without a refetch or `router.refresh()`.
 
 ## Tests
 

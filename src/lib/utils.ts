@@ -30,6 +30,17 @@ export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+export function formatDateLabel(date: Date | string | number) {
+  return dateFormatter.format(new Date(date));
+}
+
 export function errorMessage(error: unknown, fallback = "Something went wrong") {
   if (error instanceof Error && error.message) return error.message;
   return fallback;

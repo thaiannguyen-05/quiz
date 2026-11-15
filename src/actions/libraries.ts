@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { firstZodError, nameSchema } from "@/lib/validation";
@@ -25,8 +23,6 @@ export async function createLibrary(input: {
     data: { name: parsed.data, ownerId: user.id },
     select: { id: true },
   });
-
-  revalidatePath("/libraries");
 
   return { ok: true, id: library.id };
 }
@@ -56,9 +52,6 @@ export async function renameLibrary(input: {
     data: { name: parsed.data },
   });
 
-  revalidatePath("/libraries");
-  revalidatePath(`/libraries/${existing.id}`);
-
   return { ok: true };
 }
 
@@ -74,8 +67,6 @@ export async function deleteLibrary(input: {
   if (result.count === 0) {
     return failure("Library not found.");
   }
-
-  revalidatePath("/libraries");
 
   return { ok: true };
 }

@@ -1,10 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { failure } from "@/lib/action-utils";
 import { requireUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
+import { toQuestionItem } from "@/lib/query/map";
+import type { QuestionItem } from "@/lib/query/types";
 import {
   firstZodError,
   questionInputSchema,
@@ -19,13 +19,6 @@ function buildAnswers(question: ImportQuestionInput) {
   }));
 }
 
-function revalidateSubjectPaths(libraryId: string, subjectId: string) {
-  revalidatePath("/libraries");
-  revalidatePath(`/libraries/${libraryId}`);
-  revalidatePath(`/libraries/${libraryId}/subjects/${subjectId}`);
-  revalidatePath(`/play/${libraryId}/${subjectId}`);
-}
-
 async function getOwnedSubject(userId: string, subjectId: string) {
   return db.subject.findFirst({
     where: { id: subjectId, library: { ownerId: userId } },
@@ -35,7 +28,9 @@ async function getOwnedSubject(userId: string, subjectId: string) {
 
 export async function createQuestion(
   input: { subjectId: string } & ImportQuestionInput,
-): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; question: QuestionItem } | { ok: false; error: string }
+> {
   const user = await requireUser();
   const subject = await getOwnedSubject(user.id, input.subjectId);
 
@@ -68,7 +63,7 @@ export async function createQuestion(
       position: (lastQuestion?.position ?? -1) + 1,
       answers: { create: buildAnswers(parsed.data) },
     },
-    select: { id: true },
+    include: { answers: { orderBy: { position: "asc" } } },
   });
 
   await db.subject.update({
@@ -76,14 +71,14 @@ export async function createQuestion(
     data: { updatedAt: new Date() },
   });
 
-  revalidateSubjectPaths(subject.libraryId, subject.id);
-
-  return { ok: true, id: question.id };
+  return { ok: true, question: toQuestionItem(question) };
 }
 
 export async function updateQuestion(
   input: { questionId: string } & ImportQuestionInput,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; question: QuestionItem } | { ok: false; error: string }
+> {
   const user = await requireUser();
 
   const question = await db.question.findFirst({
@@ -91,7 +86,10 @@ export async function updateQuestion(
       id: input.questionId,
       subject: { library: { ownerId: user.id } },
     },
-    select: { id: true, subjectId: true, subject: { select: { libraryId: true } } },
+    select: {
+      id: true,
+      subjectId: true,
+    },
   });
 
   if (!question) {
@@ -109,25 +107,28 @@ export async function updateQuestion(
     return failure(firstZodError(parsed.error));
   }
 
-  await db.$transaction([
-    db.answer.deleteMany({ where: { questionId: question.id } }),
-    db.question.update({
+  const updated = await db.$transaction(async (tx) => {
+    await tx.answer.deleteMany({ where: { questionId: question.id } });
+
+    const updatedQuestion = await tx.question.update({
       where: { id: question.id },
       data: {
         text: parsed.data.text,
         timeLimit: parsed.data.timeLimit,
         answers: { create: buildAnswers(parsed.data) },
       },
-    }),
-    db.subject.update({
+      include: { answers: { orderBy: { position: "asc" } } },
+    });
+
+    await tx.subject.update({
       where: { id: question.subjectId },
       data: { updatedAt: new Date() },
-    }),
-  ]);
+    });
 
-  revalidateSubjectPaths(question.subject.libraryId, question.subjectId);
+    return updatedQuestion;
+  });
 
-  return { ok: true };
+  return { ok: true, question: toQuestionItem(updated) };
 }
 
 export async function deleteQuestion(input: {
@@ -140,7 +141,7 @@ export async function deleteQuestion(input: {
       id: input.questionId,
       subject: { library: { ownerId: user.id } },
     },
-    select: { id: true, subjectId: true, subject: { select: { libraryId: true } } },
+    select: { id: true, subjectId: true },
   });
 
   if (!question) {
@@ -154,8 +155,6 @@ export async function deleteQuestion(input: {
       data: { updatedAt: new Date() },
     }),
   ]);
-
-  revalidateSubjectPaths(question.subject.libraryId, question.subjectId);
 
   return { ok: true };
 }
@@ -199,8 +198,6 @@ export async function reorderQuestions(input: {
     where: { id: subject.id },
     data: { updatedAt: new Date() },
   });
-
-  revalidateSubjectPaths(subject.libraryId, subject.id);
 
   return { ok: true };
 }

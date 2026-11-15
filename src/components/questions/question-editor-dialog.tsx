@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,20 +11,11 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Spinner } from "@/components/ui/spinner";
+import { upsertQuestionInCache } from "@/lib/query/cache";
+import type { QuestionItem } from "@/lib/query/types";
 import { cn } from "@/lib/utils";
 
-export type QuestionItem = {
-  id: string;
-  text: string;
-  timeLimit: number;
-  position: number;
-  answers: {
-    id: string;
-    text: string;
-    isCorrect: boolean;
-    position: number;
-  }[];
-};
+export type { QuestionItem } from "@/lib/query/types";
 
 const LETTERS = ["A", "B", "C", "D"];
 
@@ -33,6 +24,7 @@ type AnswerDraft = { text: string; isCorrect: boolean };
 type QuestionEditorDialogProps = {
   open: boolean;
   onClose: () => void;
+  libraryId: string;
   subjectId: string;
   question: QuestionItem | null;
 };
@@ -44,10 +36,11 @@ export function QuestionEditorDialog(props: QuestionEditorDialogProps) {
 
 function QuestionEditorDialogContent({
   onClose,
+  libraryId,
   subjectId,
   question,
 }: QuestionEditorDialogProps) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [text, setText] = useState(question?.text ?? "");
   const [answers, setAnswers] = useState<AnswerDraft[]>(() =>
     question
@@ -62,7 +55,38 @@ function QuestionEditorDialogContent({
   );
   const [timeLimit, setTimeLimit] = useState(question?.timeLimit ?? 40);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+
+  const saveMutation = useMutation({
+    mutationFn: (input: {
+      text: string;
+      answers: string[];
+      correctIndices: number[];
+      timeLimit: number;
+    }) =>
+      question
+        ? updateQuestion({ questionId: question.id, ...input })
+        : createQuestion({ subjectId, ...input }),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      upsertQuestionInCache(
+        queryClient,
+        libraryId,
+        subjectId,
+        result.question,
+      );
+      toast.success(question ? "Question updated" : "Question added");
+      onClose();
+    },
+    onError: () => {
+      setError("Could not save the question. Please try again.");
+    },
+  });
+
+  const busy = saveMutation.isPending;
 
   function updateAnswer(index: number, patch: Partial<AnswerDraft>) {
     setAnswers((previous) =>
@@ -87,7 +111,7 @@ function QuestionEditorDialogContent({
     );
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
@@ -118,33 +142,12 @@ function QuestionEditorDialogContent({
       return;
     }
 
-    setBusy(true);
-
-    const payload = {
+    saveMutation.mutate({
       text: cleanText,
       answers: cleanAnswers,
       correctIndices,
       timeLimit,
-    };
-
-    try {
-      const result = question
-        ? await updateQuestion({ questionId: question.id, ...payload })
-        : await createQuestion({ subjectId, ...payload });
-
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-
-      toast.success(question ? "Question updated" : "Question added");
-      onClose();
-      router.refresh();
-    } catch {
-      setError("Could not save the question. Please try again.");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   return (
