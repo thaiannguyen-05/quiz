@@ -11,9 +11,8 @@ export function isAllowedEmail(email: string): boolean {
   if (!raw) {
     if (process.env.NODE_ENV === "production") {
       console.warn(
-        "[auth] ALLOWED_EMAILS is empty in production; every sign-in will be denied.",
+        "[auth] ALLOWED_EMAILS is empty in production; allowing all Google accounts.",
       );
-      return false;
     }
     return true;
   }
