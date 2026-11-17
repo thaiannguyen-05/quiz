@@ -49,6 +49,7 @@ export function AppShell({
     <div className="min-h-screen">
       {/* Sidebar */}
       <aside
+        suppressHydrationWarning
         className={`fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col border-r border-white/80 bg-white/65 px-4 py-6 backdrop-blur-xl transition-transform duration-200 lg:flex ${
           collapsed ? "-translate-x-full" : "translate-x-0"
         }`}
@@ -141,6 +142,7 @@ export function AppShell({
       </header>
 
       <main
+        suppressHydrationWarning
         className={`transition-[padding] duration-200 ${
           collapsed ? "lg:pl-0" : "lg:pl-[264px]"
         }`}
