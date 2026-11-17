@@ -69,7 +69,7 @@ export default async function LoginPage({
       <div className="pointer-events-none absolute -right-24 bottom-[-12%] size-[24rem] rounded-full bg-[#c9f2e5]/80 blur-3xl" />
 
       <div className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/70 bg-white/70 shadow-[0_30px_100px_-40px_rgba(29,26,51,0.45)] backdrop-blur-xl md:grid-cols-[1.05fr_1fr]">
-        <section className="relative hidden items-center justify-center overflow-hidden bg-gradient-to-br from-[#3b2bc4] via-[#5b4bf5] to-[#7d6cff] p-10 text-white md:flex">
+        <section className="relative hidden items-center justify-center overflow-hidden bg-gradient-to-br from-[#b87aa8] via-[#D291BC] to-[#e8b5d0] p-10 text-white md:flex">
           <div className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-white/10 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-24 -left-16 size-72 rounded-full bg-[#36d6ae]/20 blur-3xl" />
 

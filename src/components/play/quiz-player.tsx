@@ -326,7 +326,7 @@ export function QuizPlayer({
         </header>
 
         <main className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 pb-16 pt-4 sm:pt-10">
-          <span className="grid size-16 place-items-center rounded-3xl bg-gradient-to-br from-[#7c6cff] to-brand-strong text-white shadow-[0_18px_35px_-16px_rgba(70,54,216,0.8)]">
+          <span className="grid size-16 place-items-center rounded-3xl bg-gradient-to-br from-[#e8b5d0] to-brand-strong text-white shadow-[0_18px_35px_-16px_rgba(210,145,188,0.8)]">
             <Play className="size-7 fill-current" />
           </span>
           <p className="mt-5 text-xs font-extrabold uppercase tracking-[0.18em] text-brand">
@@ -622,7 +622,7 @@ export function QuizPlayer({
             </div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-line/70">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[#7c6cff] to-brand transition-[width] duration-300"
+                className="h-full rounded-full bg-gradient-to-r from-[#e8b5d0] to-brand transition-[width] duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>

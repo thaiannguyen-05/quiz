@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { Logo } from "@/components/logo";
 import { SignOutButton } from "@/components/sign-out-button";
+import { ThemePicker } from "@/components/theme-picker";
 import { requireUser } from "@/lib/auth-helpers";
 import { initials } from "@/lib/utils";
 
@@ -42,6 +43,10 @@ export default async function AppLayout({
             <p className="mt-1 text-[11px] leading-relaxed text-ink-soft">
               Open a subject and hit Play. Right answers flow on their own.
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-white/80 p-2.5">
+            <ThemePicker />
           </div>
 
           <div className="flex items-center gap-2.5 rounded-2xl border border-line bg-white/80 p-2.5">

@@ -21,7 +21,7 @@ export function Logo({
       )}
       aria-label="QuizDeck home"
     >
-      <span className="grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-[#7c6cff] to-brand-strong shadow-[0_10px_20px_-8px_rgba(70,54,216,0.7)]">
+      <span className="grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-[#e8b5d0] to-brand-strong shadow-[0_10px_20px_-8px_rgba(210,145,188,0.7)]">
         <Layers className="size-5 text-white" strokeWidth={2.4} />
       </span>
       {showWordmark ? (

@@ -460,7 +460,7 @@ function ImportDialogContent({
                           onChange={toggleAll}
                           disabled={validQuestions.length === 0 || committing}
                           aria-label="Select all valid questions"
-                          className="size-4 accent-[#5b4bf5]"
+                          className="size-4 accent-[#D291BC]"
                         />
                       </th>
                       <th className="w-12 px-3 py-2.5">#</th>
@@ -490,7 +490,7 @@ function ImportDialogContent({
                               onChange={() => toggleRow(question.rowNumber)}
                               disabled={!valid || committing}
                               aria-label={`Include question from row ${question.rowNumber}`}
-                              className="size-4 accent-[#5b4bf5]"
+                              className="size-4 accent-[#D291BC]"
                             />
                           </td>
                           <td className="px-3 py-3 align-top text-xs font-bold text-ink-faint">

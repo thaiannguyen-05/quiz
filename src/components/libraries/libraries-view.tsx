@@ -33,12 +33,15 @@ import {
 import { librariesQueryOptions } from "@/lib/query/options";
 import type { LibrarySummary } from "@/lib/query/types";
 
-const COVERS = [
-  "from-[#6d5cff] via-[#7f6dff] to-[#b2a8ff]",
-  "from-[#0f9f7f] via-[#1ab894] to-[#8ce6cf]",
-  "from-[#e08a00] via-[#f2ad2f] to-[#ffd98a]",
-  "from-[#db3a72] via-[#ef5c92] to-[#ffa7c4]",
-  "from-[#0284c7] via-[#38aeea] to-[#9adcff]",
+const COVERS: Array<
+  | { kind: "theme" }
+  | { kind: "fixed"; className: string }
+> = [
+  { kind: "theme" },
+  { kind: "fixed", className: "from-[#0f9f7f] via-[#1ab894] to-[#8ce6cf]" },
+  { kind: "fixed", className: "from-[#e08a00] via-[#f2ad2f] to-[#ffd98a]" },
+  { kind: "fixed", className: "from-[#db3a72] via-[#ef5c92] to-[#ffa7c4]" },
+  { kind: "fixed", className: "from-[#0284c7] via-[#38aeea] to-[#9adcff]" },
 ];
 
 function plural(count: number, word: string) {
@@ -214,9 +217,23 @@ export function LibrariesView({
                 href={`/libraries/${library.id}`}
                 className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40"
               >
-                <div
-                  className={`relative h-24 overflow-hidden bg-gradient-to-br ${COVERS[index % COVERS.length]}`}
-                >
+                {(() => {
+                  const cover = COVERS[index % COVERS.length];
+                  const isFixed = cover.kind === "fixed";
+                  return (
+                    <div
+                      className={`relative h-24 overflow-hidden ${
+                        isFixed ? `bg-gradient-to-br ${cover.className}` : ""
+                      }`}
+                      style={
+                        !isFixed
+                          ? {
+                              background:
+                                "linear-gradient(135deg, var(--color-brand) 0%, color-mix(in srgb, var(--color-brand) 45%, white) 100%)",
+                            }
+                          : undefined
+                      }
+                    >
                   <div className="absolute -right-5 -top-7 size-24 rounded-full bg-white/15" />
                   <div className="absolute -bottom-10 right-12 size-20 rounded-full bg-white/10" />
                   <span className="absolute left-4 top-4 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white backdrop-blur-sm">
@@ -224,6 +241,8 @@ export function LibrariesView({
                   </span>
                   <Layers className="absolute bottom-3 right-4 size-8 text-white/80" />
                 </div>
+                  );
+                })()}
                 <div className="p-5 pb-4">
                   <h3 className="truncate text-lg font-extrabold tracking-tight">
                     {library.name}
