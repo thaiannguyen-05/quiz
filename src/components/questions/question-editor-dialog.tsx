@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useT } from "@/components/i18n-provider";
 import { createQuestion, updateQuestion } from "@/actions/questions";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -41,6 +42,7 @@ function QuestionEditorDialogContent({
   question,
 }: QuestionEditorDialogProps) {
   const queryClient = useQueryClient();
+  const t = useT();
   const [text, setText] = useState(question?.text ?? "");
   const [answers, setAnswers] = useState<AnswerDraft[]>(() =>
     question
@@ -78,7 +80,7 @@ function QuestionEditorDialogContent({
         subjectId,
         result.question,
       );
-      toast.success(question ? "Question updated" : "Question added");
+      toast.success(question ? t("questionEditor.toasts.updated") : t("questionEditor.toasts.added"));
       onClose();
     },
     onError: () => {
@@ -154,8 +156,8 @@ function QuestionEditorDialogContent({
     <Modal
       open
       onClose={busy ? () => undefined : onClose}
-      title={question ? "Edit question" : "Add a question"}
-      description="One or more answers can be correct. Multi-answer questions ask for a Check answer click."
+      title={question ? t("questionEditor.editTitle") : t("questionEditor.addTitle")}
+      description={t("questionEditor.description")}
       size="lg"
       dismissible={!busy}
     >
@@ -166,7 +168,7 @@ function QuestionEditorDialogContent({
             id="question-text"
             value={text}
             onChange={(event) => setText(event.target.value)}
-            placeholder="Type the question prompt…"
+            placeholder={t("questionEditor.promptPlaceholder")}
             rows={3}
             maxLength={2000}
             disabled={busy}
@@ -210,7 +212,7 @@ function QuestionEditorDialogContent({
                   onChange={(event) =>
                     updateAnswer(index, { text: event.target.value })
                   }
-                  placeholder={`Answer ${index + 1}`}
+                  placeholder={t("questionEditor.answerPlaceholder", { n: index + 1 })}
                   maxLength={500}
                   disabled={busy}
                   aria-label={`Answer ${index + 1}`}

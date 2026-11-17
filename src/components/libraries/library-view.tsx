@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useT } from "@/components/i18n-provider";
 import { deleteLibrary, renameLibrary } from "@/actions/libraries";
 import {
   createSubject,
@@ -58,6 +59,7 @@ export function LibraryView({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const t = useT();
   const [importOpen, setImportOpen] = useState(false);
   const [createSubjectOpen, setCreateSubjectOpen] = useState(false);
   const [renameLibraryOpen, setRenameLibraryOpen] = useState(false);
@@ -86,7 +88,7 @@ export function LibraryView({
         id: result.id,
         name: variables.name,
       });
-      toast.success("Subject created");
+      toast.success(t("library.toasts.subjectCreated"));
       router.push(`/libraries/${variables.libraryId}/subjects/${result.id}`);
     },
   });
@@ -96,7 +98,7 @@ export function LibraryView({
     onSuccess: (result, variables) => {
       if (!result.ok) return;
       renameLibraryInCache(queryClient, variables.id, variables.name);
-      toast.success("Library renamed");
+      toast.success(t("library.toasts.libraryRenamed"));
     },
   });
 
@@ -105,7 +107,7 @@ export function LibraryView({
     onSuccess: (result, variables) => {
       if (!result.ok) return;
       renameSubjectInCache(queryClient, library.id, variables.id, variables.name);
-      toast.success("Subject renamed");
+      toast.success(t("library.toasts.subjectRenamed"));
     },
   });
 
@@ -121,11 +123,11 @@ export function LibraryView({
         subjects.find((subject) => subject.id === variables.id)?.questionCount ??
         0;
       removeSubjectFromCache(queryClient, library.id, variables.id, questionCount);
-      toast.success("Subject deleted");
+      toast.success(t("library.toasts.subjectDeleted"));
       setDeleteSubjectTarget(null);
     },
     onError: () => {
-      toast.error("Could not delete the subject.");
+      toast.error(t("library.toasts.deleteFailed"));
     },
   });
 
@@ -137,11 +139,11 @@ export function LibraryView({
         return;
       }
       removeLibraryFromCache(queryClient, variables.id);
-      toast.success("Library deleted");
+      toast.success(t("library.toasts.libraryDeleted"));
       router.push("/libraries");
     },
     onError: () => {
-      toast.error("Could not delete the library.");
+      toast.error(t("library.toasts.libraryDeleteFailed"));
     },
   });
 
@@ -181,7 +183,7 @@ export function LibraryView({
               size="icon"
               onClick={() => setRenameLibraryOpen(true)}
               aria-label="Rename library"
-              title="Rename library"
+              title={t("library.renameLibrary")}
             >
               <Pencil className="size-4" />
             </Button>
@@ -209,11 +211,11 @@ export function LibraryView({
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => setCreateSubjectOpen(true)}>
             <Plus className="size-4" />
-            New subject
+            {t("library.newSubject")}
           </Button>
           <Button onClick={() => setImportOpen(true)}>
             <FileUp className="size-4" />
-            Import CSV
+            {t("library.importCsv")}
           </Button>
         </div>
       </div>
@@ -226,7 +228,7 @@ export function LibraryView({
           onClick={() => setDeleteLibraryOpen(true)}
         >
           <Trash2 className="size-3.5" />
-          Delete library
+          {t("library.deleteLibrary")}
         </Button>
       </div>
 
@@ -234,8 +236,8 @@ export function LibraryView({
         <EmptyState
           className="mt-4"
           icon={Sparkles}
-          title="No subjects in this library yet"
-          description="Import a CSV to create a subject with its questions, or start an empty subject and add questions by hand."
+          title={t("library.noSubjectsTitle")}
+          description={t("library.noSubjectsDescription")}
           action={
             <div className="flex flex-wrap justify-center gap-2">
               <Button variant="secondary" onClick={() => setCreateSubjectOpen(true)}>
@@ -307,7 +309,7 @@ export function LibraryView({
                     variant="ghost"
                     size="icon"
                     aria-label={`Rename ${subject.name}`}
-                    title="Rename subject"
+                    title={t("library.renameSubjectDialog.title")}
                     onClick={() => setRenameSubjectTarget(subject)}
                   >
                     <Pencil className="size-3.5" />
@@ -351,11 +353,11 @@ export function LibraryView({
       <NameDialog
         open={createSubjectOpen}
         onClose={() => setCreateSubjectOpen(false)}
-        title="Create an empty subject"
-        description="You can add questions one at a time after creating it."
-        label="Subject name"
-        placeholder="e.g. Chapter 4 — Joins"
-        submitLabel="Create subject"
+        title={t("library.createEmptySubjectDialog.title")}
+        description={t("library.createEmptySubjectDialog.description")}
+        label={t("library.createEmptySubjectDialog.label")}
+        placeholder={t("library.createEmptySubjectDialog.placeholder")}
+        submitLabel={t("library.createEmptySubjectDialog.submit")}
         onSubmit={(name) =>
           createSubjectMutation.mutateAsync({ libraryId: library.id, name })
         }
@@ -364,10 +366,10 @@ export function LibraryView({
       <NameDialog
         open={renameLibraryOpen}
         onClose={() => setRenameLibraryOpen(false)}
-        title="Rename library"
-        label="Library name"
+        title={t("library.renameLibraryDialog.title")}
+        label={t("library.renameLibraryDialog.label")}
         initialValue={library.name}
-        submitLabel="Save changes"
+        submitLabel={t("library.renameLibraryDialog.submit")}
         onSubmit={(name) =>
           renameLibraryMutation.mutateAsync({ id: library.id, name })
         }
@@ -376,10 +378,10 @@ export function LibraryView({
       <NameDialog
         open={renameSubjectTarget !== null}
         onClose={() => setRenameSubjectTarget(null)}
-        title="Rename subject"
-        label="Subject name"
+        title={t("library.renameSubjectDialog.title")}
+        label={t("library.renameSubjectDialog.label")}
         initialValue={renameSubjectTarget?.name ?? ""}
-        submitLabel="Save changes"
+        submitLabel={t("library.renameSubjectDialog.submit")}
         onSubmit={async (name) => {
           if (!renameSubjectTarget) {
             return { ok: false as const, error: "Subject not found." };
@@ -394,15 +396,17 @@ export function LibraryView({
       <ConfirmDialog
         open={deleteSubjectTarget !== null}
         onClose={() => setDeleteSubjectTarget(null)}
-        title="Delete this subject?"
+        title={t("library.deleteSubjectDialog.title")}
         description={
           deleteSubjectTarget
-            ? `“${deleteSubjectTarget.name}” and its ${deleteSubjectTarget.questionCount} question${
-                deleteSubjectTarget.questionCount === 1 ? "" : "s"
-              } will be permanently deleted.`
+            ? t("library.deleteSubjectDialog.description", {
+                name: deleteSubjectTarget.name,
+                count: deleteSubjectTarget.questionCount,
+                plural: deleteSubjectTarget.questionCount === 1 ? "" : "s",
+              })
             : ""
         }
-        confirmLabel="Delete subject"
+        confirmLabel={t("library.deleteSubjectDialog.confirm")}
         onConfirm={async () => {
           if (!deleteSubjectTarget) return;
           try {
@@ -410,7 +414,7 @@ export function LibraryView({
               id: deleteSubjectTarget.id,
             });
           } catch {
-            toast.error("Could not delete the subject.");
+            toast.error(t("library.toasts.deleteFailed"));
           }
         }}
       />
@@ -418,16 +422,18 @@ export function LibraryView({
       <ConfirmDialog
         open={deleteLibraryOpen}
         onClose={() => setDeleteLibraryOpen(false)}
-        title="Delete this library?"
-        description={`“${library.name}” and all of its ${subjects.length} subject${
-          subjects.length === 1 ? "" : "s"
-        } (${questionCount} question${questionCount === 1 ? "" : "s"}) will be permanently deleted.`}
-        confirmLabel="Delete library"
+        title={t("library.deleteLibraryDialog.title")}
+        description={t("library.deleteLibraryDialog.description", {
+          name: library.name,
+          subjects: `${subjects.length} subject${subjects.length === 1 ? "" : "s"}`,
+          questions: `${questionCount} question${questionCount === 1 ? "" : "s"}`,
+        })}
+        confirmLabel={t("library.deleteLibraryDialog.confirm")}
         onConfirm={async () => {
           try {
             await deleteLibraryMutation.mutateAsync({ id: library.id });
           } catch {
-            toast.error("Could not delete the library.");
+            toast.error(t("library.toasts.libraryDeleteFailed"));
           }
         }}
       />

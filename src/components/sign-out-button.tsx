@@ -5,9 +5,11 @@ import { LogOut } from "lucide-react";
 
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/i18n-provider";
 
 export function SignOutButton() {
   const queryClient = useQueryClient();
+  const t = useT();
 
   return (
     <form
@@ -22,8 +24,8 @@ export function SignOutButton() {
         type="submit"
         variant="ghost"
         size="icon"
-        aria-label="Sign out"
-        title="Sign out"
+        aria-label={t("layout.signOut")}
+        title={t("layout.signOut")}
       >
         <LogOut className="size-4" />
       </Button>

@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useT } from "@/components/i18n-provider";
+
 import {
   createLibrary,
   deleteLibrary,
@@ -33,12 +35,15 @@ import {
 import { librariesQueryOptions } from "@/lib/query/options";
 import type { LibrarySummary } from "@/lib/query/types";
 
-const COVERS = [
-  "from-[#6d5cff] via-[#7f6dff] to-[#b2a8ff]",
-  "from-[#0f9f7f] via-[#1ab894] to-[#8ce6cf]",
-  "from-[#e08a00] via-[#f2ad2f] to-[#ffd98a]",
-  "from-[#db3a72] via-[#ef5c92] to-[#ffa7c4]",
-  "from-[#0284c7] via-[#38aeea] to-[#9adcff]",
+const COVERS: Array<
+  | { kind: "theme" }
+  | { kind: "fixed"; className: string }
+> = [
+  { kind: "theme" },
+  { kind: "fixed", className: "from-[#0f9f7f] via-[#1ab894] to-[#8ce6cf]" },
+  { kind: "fixed", className: "from-[#e08a00] via-[#f2ad2f] to-[#ffd98a]" },
+  { kind: "fixed", className: "from-[#db3a72] via-[#ef5c92] to-[#ffa7c4]" },
+  { kind: "fixed", className: "from-[#0284c7] via-[#38aeea] to-[#9adcff]" },
 ];
 
 function plural(count: number, word: string) {
@@ -57,6 +62,7 @@ export function LibrariesView({
   firstName: string;
 }) {
   const router = useRouter();
+  const t = useT();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<LibrarySummary | null>(
@@ -79,7 +85,7 @@ export function LibrariesView({
         id: result.id,
         name: variables.name,
       });
-      toast.success("Library created");
+      toast.success(t("libraries.toasts.created"));
       router.push(`/libraries/${result.id}`);
     },
   });
@@ -89,7 +95,7 @@ export function LibrariesView({
     onSuccess: (result, variables) => {
       if (!result.ok) return;
       renameLibraryInCache(queryClient, variables.id, variables.name);
-      toast.success("Library renamed");
+      toast.success(t("libraries.toasts.renamed"));
     },
   });
 
@@ -101,11 +107,11 @@ export function LibrariesView({
         return;
       }
       removeLibraryFromCache(queryClient, variables.id);
-      toast.success("Library deleted");
+      toast.success(t("libraries.toasts.deleted"));
       setDeleteTarget(null);
     },
     onError: () => {
-      toast.error("Could not delete the library.");
+      toast.error(t("libraries.toasts.deleteFailed"));
     },
   });
 
@@ -123,38 +129,37 @@ export function LibrariesView({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-brand">
-            Your workspace
+            {t("libraries.pageTitle")}
           </p>
           <h1 className="mt-1.5 text-3xl font-extrabold tracking-[-0.04em] sm:text-4xl">
-            Hey {firstName}, ready to learn?
+            {t("libraries.greeting", { name: firstName })}
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">
-            Libraries hold your subjects. Drop in a CSV, tidy up the questions,
-            then practise until the answers stick.
+            {t("libraries.intro")}
           </p>
         </div>
         <Button size="lg" onClick={() => setCreateOpen(true)}>
           <Plus className="size-4.5" />
-          New library
+          {t("libraries.newLibrary")}
         </Button>
       </div>
 
       <div className="mt-7 grid gap-3 sm:grid-cols-3">
         {[
           {
-            label: "Libraries",
+            label: t("libraries.stats.libraries"),
             value: libraries.length,
             icon: Layers,
             tone: "bg-brand-soft text-brand",
           },
           {
-            label: "Subjects",
+            label: t("libraries.stats.subjects"),
             value: subjectCount,
             icon: BookOpen,
             tone: "bg-mint-soft text-mint",
           },
           {
-            label: "Questions",
+            label: t("libraries.stats.questions"),
             value: questionCount,
             icon: ListChecks,
             tone: "bg-sun-soft text-[#a66f00]",
@@ -183,7 +188,7 @@ export function LibrariesView({
 
       <div className="mt-9 flex items-center justify-between">
         <h2 className="text-lg font-extrabold tracking-tight">
-          All libraries
+          {t("libraries.allLibraries")}
         </h2>
         <span className="text-xs font-semibold text-ink-faint">
           {plural(libraries.length, "library")}
@@ -194,12 +199,12 @@ export function LibrariesView({
         <EmptyState
           className="mt-4"
           icon={Sparkles}
-          title="Your first library starts here"
-          description="Create a library for a course or semester, then import a CSV of questions as a subject."
+          title={t("libraries.emptyTitle")}
+          description={t("libraries.emptyDescription")}
           action={
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="size-4.5" />
-              Create a library
+              {t("libraries.createLibrary")}
             </Button>
           }
         />
@@ -214,9 +219,23 @@ export function LibrariesView({
                 href={`/libraries/${library.id}`}
                 className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40"
               >
-                <div
-                  className={`relative h-24 overflow-hidden bg-gradient-to-br ${COVERS[index % COVERS.length]}`}
-                >
+                {(() => {
+                  const cover = COVERS[index % COVERS.length];
+                  const isFixed = cover.kind === "fixed";
+                  return (
+                    <div
+                      className={`relative h-24 overflow-hidden ${
+                        isFixed ? `bg-gradient-to-br ${cover.className}` : ""
+                      }`}
+                      style={
+                        !isFixed
+                          ? {
+                              background:
+                                "linear-gradient(135deg, var(--color-brand) 0%, color-mix(in srgb, var(--color-brand) 45%, white) 100%)",
+                            }
+                          : undefined
+                      }
+                    >
                   <div className="absolute -right-5 -top-7 size-24 rounded-full bg-white/15" />
                   <div className="absolute -bottom-10 right-12 size-20 rounded-full bg-white/10" />
                   <span className="absolute left-4 top-4 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white backdrop-blur-sm">
@@ -224,12 +243,14 @@ export function LibrariesView({
                   </span>
                   <Layers className="absolute bottom-3 right-4 size-8 text-white/80" />
                 </div>
+                  );
+                })()}
                 <div className="p-5 pb-4">
                   <h3 className="truncate text-lg font-extrabold tracking-tight">
                     {library.name}
                   </h3>
                   <p className="mt-0.5 text-[11px] text-ink-faint">
-                    Created {library.createdLabel}
+                    {t("libraries.card.created", { date: library.createdLabel })}
                   </p>
                   <div className="mt-3 flex items-center gap-3 text-xs font-semibold text-ink-soft">
                     <span className="inline-flex items-center gap-1.5">
@@ -249,7 +270,7 @@ export function LibrariesView({
                   href={`/libraries/${library.id}`}
                   className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-brand-strong transition hover:bg-brand-soft"
                 >
-                  Open library
+                  {t("libraries.card.openLibrary")}
                   <ArrowRight className="size-3.5" />
                 </Link>
                 <div className="flex items-center gap-0.5">
@@ -257,7 +278,7 @@ export function LibrariesView({
                     variant="ghost"
                     size="icon"
                     aria-label={`Rename ${library.name}`}
-                    title="Rename library"
+                    title={t("libraries.renameDialog.title")}
                     onClick={() => setRenameTarget(library)}
                   >
                     <Pencil className="size-3.5" />
@@ -281,21 +302,21 @@ export function LibrariesView({
       <NameDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Create a library"
-        description="Use a course, semester, or exam name. You can add subjects right after."
-        label="Library name"
-        placeholder="e.g. Data Analysis — Semester 1"
-        submitLabel="Create library"
+        title={t("libraries.createDialog.title")}
+        description={t("libraries.createDialog.description")}
+        label={t("libraries.createDialog.label")}
+        placeholder={t("libraries.createDialog.placeholder")}
+        submitLabel={t("libraries.createDialog.submit")}
         onSubmit={(name) => createMutation.mutateAsync({ name })}
       />
 
       <NameDialog
         open={renameTarget !== null}
         onClose={() => setRenameTarget(null)}
-        title="Rename library"
-        label="Library name"
+        title={t("libraries.renameDialog.title")}
+        label={t("libraries.renameDialog.label")}
         initialValue={renameTarget?.name ?? ""}
-        submitLabel="Save changes"
+        submitLabel={t("libraries.renameDialog.submit")}
         onSubmit={async (name) => {
           if (!renameTarget) {
             return { ok: false as const, error: "Library not found." };
@@ -307,22 +328,23 @@ export function LibrariesView({
       <ConfirmDialog
         open={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        title="Delete this library?"
+        title={t("libraries.deleteDialog.title")}
         description={
           deleteTarget
-            ? `“${deleteTarget.name}” and all of its ${plural(
-                deleteTarget.subjectCount,
-                "subject",
-              )} (${plural(deleteTarget.questionCount, "question")}) will be permanently deleted.`
+            ? t("libraries.deleteDialog.description", {
+                name: deleteTarget.name,
+                subjects: plural(deleteTarget.subjectCount, "subject"),
+                questions: plural(deleteTarget.questionCount, "question"),
+              })
             : ""
         }
-        confirmLabel="Delete library"
+        confirmLabel={t("libraries.deleteDialog.confirm")}
         onConfirm={async () => {
           if (!deleteTarget) return;
           try {
             await deleteMutation.mutateAsync({ id: deleteTarget.id });
           } catch {
-            toast.error("Could not delete the library.");
+            toast.error(t("libraries.toasts.deleteFailed"));
           }
         }}
       />

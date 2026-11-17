@@ -4,15 +4,15 @@
 @theme {
   --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
 
-  --color-canvas: #f6f5fc;
+  --color-canvas: #FFDFD3;
   --color-ink: #1d1a33;
   --color-ink-soft: #625d7e;
   --color-ink-faint: #8e89a6;
   --color-line: #e7e3f3;
   --color-line-strong: #d7d2e8;
-  --color-brand: #5b4bf5;
-  --color-brand-strong: #4636d8;
-  --color-brand-soft: #eeecff;
+  --color-brand: #D291BC;
+  --color-brand-strong: #D291BC;
+  --color-brand-soft: #f7eaf0;
   --color-mint: #11a683;
   --color-mint-soft: #e4f8f2;
   --color-coral: #ef5a6f;
@@ -33,8 +33,8 @@ body {
   min-height: 100%;
   background-color: var(--color-canvas);
   background-image:
-    radial-gradient(1100px 560px at 100% -8%, #e9e3ff 0%, transparent 62%),
-    radial-gradient(900px 520px at -8% 104%, #dff6ef 0%, transparent 58%);
+    radial-gradient(1100px 560px at 100% -8%, #f3e6f0 0%, transparent 62%),
+    radial-gradient(900px 520px at -8% 104%, #fce8e0 0%, transparent 58%);
   background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -43,7 +43,7 @@ body {
 }
 
 ::selection {
-  background: #d9d3ff;
+  background: #f0d9e8;
   color: var(--color-ink);
 }
 

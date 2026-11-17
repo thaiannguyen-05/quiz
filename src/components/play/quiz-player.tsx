@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -23,6 +24,8 @@ import {
 import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useT } from "@/components/i18n-provider";
 import { cn, formatMinutes } from "@/lib/utils";
 
 export type PlayQuestion = {
@@ -132,8 +135,12 @@ export function QuizPlayer({
   questions: PlayQuestion[];
 }) {
   const subjectHref = `/libraries/${library.id}/subjects/${subject.id}`;
+  const t = useT();
+  const router = useRouter();
 
   const [stage, setStage] = useState<Stage>("setup");
+  const [exitOpen, setExitOpen] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleAnswers, setShuffleAnswers] = useState(false);
   const [timerEnabled, setTimerEnabled] = useState(true);
@@ -144,6 +151,55 @@ export function QuizPlayer({
   const [selected, setSelected] = useState<number[]>([]);
   const [outcomes, setOutcomes] = useState<(Outcome | undefined)[]>([]);
   const [remainingMs, setRemainingMs] = useState(0);
+
+  const progressKey = `quiz-progress:${subject.id}`;
+
+  // Load saved progress on mount
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(progressKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.deck) && parsed.deck.length > 0) {
+          setHasSaved(true);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [progressKey]);
+
+  // Auto-save progress while playing
+  useEffect(() => {
+    if (stage !== "playing" || deck.length === 0) return;
+    const data = {
+      settings: { shuffleQuestions, shuffleAnswers, timerEnabled },
+      deck: deck.map((q) => ({ questionId: q.id, answerIds: q.answers.map((a) => a.id) })),
+      index,
+      phase,
+      selected,
+      outcomes,
+      remainingMs,
+      savedAt: Date.now(),
+    };
+    try {
+      window.localStorage.setItem(progressKey, JSON.stringify(data));
+    } catch {
+      /* ignore */
+    }
+  }, [stage, deck, index, phase, selected, outcomes, remainingMs, shuffleQuestions, shuffleAnswers, timerEnabled, progressKey]);
+
+  // Clear progress when round completes
+  useEffect(() => {
+    if (stage === "summary") {
+      try {
+        window.localStorage.removeItem(progressKey);
+      } catch {
+        /* ignore */
+      }
+      setHasSaved(false);
+    }
+  }, [stage, progressKey]);
 
   const totalSeconds = questions.reduce(
     (total, question) => total + question.timeLimit,
@@ -168,6 +224,13 @@ export function QuizPlayer({
   ).length;
 
   function startSession() {
+    try {
+      window.localStorage.removeItem(progressKey);
+    } catch {
+      /* ignore */
+    }
+    setHasSaved(false);
+
     let nextDeck: PlayQuestion[] = questions.map((item) => ({
       ...item,
       answers: [...item.answers],
@@ -188,6 +251,56 @@ export function QuizPlayer({
     setOutcomes([]);
     setRemainingMs((nextDeck[0]?.timeLimit ?? 0) * 1000);
     setStage("playing");
+  }
+
+  function resumeSession() {
+    let raw: string | null = null;
+    try {
+      raw = window.localStorage.getItem(progressKey);
+    } catch {
+      raw = null;
+    }
+    if (!raw) {
+      startSession();
+      return;
+    }
+    try {
+      const data = JSON.parse(raw);
+      const nextDeck: PlayQuestion[] = (data.deck ?? [])
+        .map((entry: { questionId: string; answerIds: string[] }) => {
+          const q = questions.find((x) => x.id === entry.questionId);
+          if (!q) return null;
+          const answers = (entry.answerIds ?? [])
+            .map((aid) => q.answers.find((a) => a.id === aid))
+            .filter(Boolean) as PlayQuestion["answers"];
+          if (answers.length !== q.answers.length) return null;
+          return { ...q, answers };
+        })
+        .filter(Boolean) as PlayQuestion[];
+
+      if (nextDeck.length === 0 || nextDeck.length !== (data.deck ?? []).length) {
+        throw new Error("invalid");
+      }
+
+      setShuffleQuestions(Boolean(data.settings?.shuffleQuestions));
+      setShuffleAnswers(Boolean(data.settings?.shuffleAnswers));
+      setTimerEnabled(data.settings?.timerEnabled !== false);
+      setDeck(nextDeck);
+      setIndex(typeof data.index === "number" ? data.index : 0);
+      setPhase(data.phase === "answering" || data.phase === "correct" || data.phase === "wrong" || data.phase === "timeout" ? data.phase : "answering");
+      setSelected(Array.isArray(data.selected) ? data.selected : []);
+      setOutcomes(Array.isArray(data.outcomes) ? data.outcomes : []);
+      setRemainingMs(typeof data.remainingMs === "number" ? data.remainingMs : 0);
+      setStage("playing");
+    } catch {
+      try {
+        window.localStorage.removeItem(progressKey);
+      } catch {
+        /* ignore */
+      }
+      setHasSaved(false);
+      startSession();
+    }
   }
 
   function advance() {
@@ -304,7 +417,7 @@ export function QuizPlayer({
         <Link href={subjectHref} className="mt-5">
           <Button size="lg">
             <ArrowLeft className="size-4" />
-            Back to subject
+            {t("quiz.results.backToSubject")}
           </Button>
         </Link>
       </div>
@@ -321,12 +434,12 @@ export function QuizPlayer({
             className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-ink-soft transition hover:bg-white hover:text-ink"
           >
             <ArrowLeft className="size-3.5" />
-            Back to subject
+            {t("quiz.results.backToSubject")}
           </Link>
         </header>
 
         <main className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 pb-16 pt-4 sm:pt-10">
-          <span className="grid size-16 place-items-center rounded-3xl bg-gradient-to-br from-[#7c6cff] to-brand-strong text-white shadow-[0_18px_35px_-16px_rgba(70,54,216,0.8)]">
+          <span className="grid size-16 place-items-center rounded-3xl bg-gradient-to-br from-[#e8b5d0] to-brand-strong text-white shadow-[0_18px_35px_-16px_rgba(210,145,188,0.8)]">
             <Play className="size-7 fill-current" />
           </span>
           <p className="mt-5 text-xs font-extrabold uppercase tracking-[0.18em] text-brand">
@@ -362,30 +475,58 @@ export function QuizPlayer({
               <Toggle
                 checked={shuffleQuestions}
                 onChange={setShuffleQuestions}
-                label="Shuffle questions"
-                description="Randomise the order for this round."
+                label={t("quiz.shuffleQuestions")}
+                description={t("quiz.shuffleQuestionsDesc")}
                 icon={Shuffle}
               />
               <Toggle
                 checked={shuffleAnswers}
                 onChange={setShuffleAnswers}
-                label="Shuffle answers"
-                description="Randomise A–D so you can't memorise positions."
+                label={t("quiz.shuffleAnswers")}
+                description={t("quiz.shuffleAnswersDesc")}
                 icon={Sparkles}
               />
               <Toggle
                 checked={timerEnabled}
                 onChange={setTimerEnabled}
-                label="Countdown timer"
-                description="Use each question's time limit. Turn off for untimed practice."
+                label={t("quiz.countdownTimer")}
+                description={t("quiz.countdownTimerDesc")}
                 icon={Clock3}
               />
             </div>
 
-            <Button size="lg" className="mt-5 w-full" onClick={startSession}>
-              <Play className="size-4 fill-current" />
-              Start practice
-            </Button>
+            {hasSaved ? (
+              <div className="mt-4 rounded-2xl border border-brand/20 bg-brand-soft/40 p-4">
+                <p className="text-sm font-bold text-ink">
+                  You have an unfinished round.
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                  Resume where you left off, or start a new round.
+                </p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <Button size="lg" className="flex-1" onClick={resumeSession}>
+                    <Play className="size-4 fill-current" />
+                    Resume
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={startSession}
+                  >
+                    <RotateCcw className="size-4" />
+                    New round
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {!hasSaved ? (
+              <Button size="lg" className="mt-5 w-full" onClick={startSession}>
+                <Play className="size-4 fill-current" />
+                {t("quiz.startPractice")}
+              </Button>
+            ) : null}
             <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-faint">
               Picking an answer submits it right away. Correct answers advance
               automatically; wrong or timed-out answers wait for you.
@@ -417,7 +558,7 @@ export function QuizPlayer({
             className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-ink-soft transition hover:bg-white hover:text-ink"
           >
             <ArrowLeft className="size-3.5" />
-            Back to subject
+            {t("quiz.results.backToSubject")}
           </Link>
         </header>
 
@@ -495,7 +636,7 @@ export function QuizPlayer({
             <Link href={subjectHref} className="flex-1">
               <Button size="lg" variant="secondary" className="w-full">
                 <ArrowLeft className="size-4" />
-                Back to subject
+                {t("quiz.results.backToSubject")}
               </Button>
             </Link>
           </div>
@@ -511,7 +652,7 @@ export function QuizPlayer({
             <section className="mt-9">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-extrabold tracking-tight">
-                  Review missed
+                  {t("quiz.results.review")}
                 </h2>
                 <span className="text-xs font-semibold text-ink-faint">
                   {missed.length} question{missed.length === 1 ? "" : "s"}
@@ -562,7 +703,7 @@ export function QuizPlayer({
             </section>
           ) : (
             <div className="mt-8 rounded-2xl border border-mint/20 bg-mint-soft p-4 text-center text-sm font-bold text-mint">
-              Perfect round — every answer was correct.
+              {t("quiz.perfectRound")}
             </div>
           )}
         </main>
@@ -604,14 +745,15 @@ export function QuizPlayer({
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-white/80 bg-canvas/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:py-4">
-          <Link
-            href={subjectHref}
+          <button
+            type="button"
+            onClick={() => setExitOpen(true)}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold text-ink-soft transition hover:bg-white hover:text-ink"
-            title="Exit practice"
+            title={t("quiz.exit")}
           >
             <ArrowLeft className="size-3.5" />
-            <span className="hidden sm:inline">Exit</span>
-          </Link>
+            <span className="hidden sm:inline">{t("quiz.exitShort")}</span>
+          </button>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
@@ -622,7 +764,7 @@ export function QuizPlayer({
             </div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-line/70">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[#7c6cff] to-brand transition-[width] duration-300"
+                className="h-full rounded-full bg-gradient-to-r from-[#e8b5d0] to-brand transition-[width] duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -645,7 +787,7 @@ export function QuizPlayer({
             {multipleCorrect ? (
               <Badge tone="sun">
                 <Sparkles className="size-3" />
-                Select all correct answers
+                {t("quiz.selectAllCorrect")}
               </Badge>
             ) : null}
           </div>
@@ -743,7 +885,7 @@ export function QuizPlayer({
             {!revealed && multipleCorrect ? (
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs font-semibold text-ink-faint">
-                  {selected.length} selected — pick every correct answer.
+                  {t("quiz.selectedCount", { count: selected.length })}
                 </p>
                 <Button
                   size="lg"
@@ -751,7 +893,7 @@ export function QuizPlayer({
                   disabled={selected.length === 0}
                 >
                   <CheckCircle2 className="size-4" />
-                  Check answer
+                  {t("quiz.checkAnswer")}
                 </Button>
               </div>
             ) : null}
@@ -774,7 +916,7 @@ export function QuizPlayer({
                 <div>
                   <p className="text-sm font-extrabold text-mint">Correct!</p>
                   <p className="text-[11px] font-semibold text-mint/80">
-                    Next question coming up…
+                    {t("quiz.next")}…
                   </p>
                 </div>
               </div>
@@ -810,7 +952,7 @@ export function QuizPlayer({
                         phase === "timeout" ? "text-[#7a5300]" : "text-coral",
                       )}
                     >
-                      {phase === "timeout" ? "Time's up" : "Not quite"}
+                      {phase === "timeout" ? t("quiz.timeout") : t("quiz.incorrect")}
                     </p>
                     <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">
                       The correct{" "}
@@ -827,7 +969,7 @@ export function QuizPlayer({
                 </div>
                 <div className="mt-3 flex justify-end">
                   <Button onClick={advance}>
-                    {isLast ? "See results" : "Continue"}
+                    {isLast ? t("quiz.seeResults") : t("quiz.continue")}
                     <ArrowRight className="size-4" />
                   </Button>
                 </div>
@@ -836,6 +978,18 @@ export function QuizPlayer({
           </div>
         </div>
       </main>
+
+      <ConfirmDialog
+        open={exitOpen}
+        onClose={() => setExitOpen(false)}
+        title={t("quiz.exit")}
+        description={t("quiz.exitConfirm")}
+        confirmLabel={t("quiz.exitShort")}
+        onConfirm={() => {
+          setExitOpen(false);
+          router.push(subjectHref);
+        }}
+      />
     </div>
   );
 }
