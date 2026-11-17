@@ -25,20 +25,10 @@ export function LateNightReminder() {
 
   useEffect(() => {
     if (!isLateNightVN()) return;
-    try {
-      if (window.sessionStorage.getItem(SESSION_KEY) === "1") return;
-    } catch {
-      /* ignore */
-    }
     setOpen(true);
   }, []);
 
   function close() {
-    try {
-      window.sessionStorage.setItem(SESSION_KEY, "1");
-    } catch {
-      /* ignore */
-    }
     setOpen(false);
   }
 
