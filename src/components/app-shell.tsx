@@ -10,6 +10,7 @@ import { LateNightReminder } from "@/components/late-night-reminder";
 import { Logo } from "@/components/logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemePicker } from "@/components/theme-picker";
+import { VersionCheck } from "@/components/version-check";
 import { initials } from "@/lib/utils";
 import { useT } from "@/components/i18n-provider";
 
@@ -143,6 +144,7 @@ export function AppShell({
       </header>
 
       <LateNightReminder />
+      <VersionCheck />
 
       <main
         suppressHydrationWarning
