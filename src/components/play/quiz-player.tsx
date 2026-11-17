@@ -386,7 +386,7 @@ export function QuizPlayer({
 
             <Button size="lg" className="mt-5 w-full" onClick={startSession}>
               <Play className="size-4 fill-current" />
-              Start practice
+              {t("quiz.startPractice")}
             </Button>
             <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-faint">
               Picking an answer submits it right away. Correct answers advance
@@ -564,7 +564,7 @@ export function QuizPlayer({
             </section>
           ) : (
             <div className="mt-8 rounded-2xl border border-mint/20 bg-mint-soft p-4 text-center text-sm font-bold text-mint">
-              Perfect round — every answer was correct.
+              {t("quiz.perfectRound")}
             </div>
           )}
         </main>
@@ -612,7 +612,7 @@ export function QuizPlayer({
             title={t("quiz.exit")}
           >
             <ArrowLeft className="size-3.5" />
-            <span className="hidden sm:inline">Exit</span>
+            <span className="hidden sm:inline">{t("quiz.exitShort")}</span>
           </Link>
 
           <div className="min-w-0 flex-1">
@@ -647,7 +647,7 @@ export function QuizPlayer({
             {multipleCorrect ? (
               <Badge tone="sun">
                 <Sparkles className="size-3" />
-                Select all correct answers
+                {t("quiz.selectAllCorrect")}
               </Badge>
             ) : null}
           </div>
@@ -745,7 +745,7 @@ export function QuizPlayer({
             {!revealed && multipleCorrect ? (
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs font-semibold text-ink-faint">
-                  {selected.length} selected — pick every correct answer.
+                  {t("quiz.selectedCount", { count: selected.length })}
                 </p>
                 <Button
                   size="lg"
@@ -829,7 +829,7 @@ export function QuizPlayer({
                 </div>
                 <div className="mt-3 flex justify-end">
                   <Button onClick={advance}>
-                    {isLast ? "See results" : "Continue"}
+                    {isLast ? t("quiz.seeResults") : t("quiz.continue")}
                     <ArrowRight className="size-4" />
                   </Button>
                 </div>
