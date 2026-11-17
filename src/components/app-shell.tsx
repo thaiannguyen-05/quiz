@@ -6,6 +6,7 @@ import { BookOpen, ChevronLeft, ChevronRight, Layers, LogOut, Sparkles } from "l
 
 import { AppNav } from "@/components/app-nav";
 import { LanguagePicker } from "@/components/language-picker";
+import { LateNightReminder } from "@/components/late-night-reminder";
 import { Logo } from "@/components/logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemePicker } from "@/components/theme-picker";
@@ -140,6 +141,8 @@ export function AppShell({
           </div>
         </div>
       </header>
+
+      <LateNightReminder />
 
       <main
         suppressHydrationWarning

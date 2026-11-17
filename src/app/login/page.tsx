@@ -9,6 +9,7 @@ import { isGoogleConfigured } from "@/lib/allowlist";
 import { getServerLocale } from "@/lib/i18n/server";
 import { translate } from "@/lib/i18n";
 import { LanguagePicker } from "@/components/language-picker";
+import { LateNightReminder } from "@/components/late-night-reminder";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -71,6 +72,7 @@ export default async function LoginPage({
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      <LateNightReminder />
       <div className="absolute right-4 top-4 z-10">
         <LanguagePicker compact />
       </div>
