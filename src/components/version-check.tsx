@@ -38,6 +38,11 @@ export function VersionCheck() {
 
   return (
     <div className="fixed bottom-4 right-4 z-[200] max-w-sm rounded-2xl border border-brand/20 bg-white p-4 shadow-[0_24px_80px_-24px_rgba(29,26,51,0.45)]">
+      <img
+        src="/update-notification.png"
+        alt="Cập nhật"
+        className="mb-3 w-full rounded-xl object-cover"
+      />
       <p className="text-sm font-bold text-ink">Có bản cập nhật mới</p>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         Ứng dụng vừa được cập nhật. Tải lại để dùng phiên bản mới nhất.
