@@ -5,8 +5,11 @@ import { AppNav } from "@/components/app-nav";
 import { Logo } from "@/components/logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemePicker } from "@/components/theme-picker";
+import { LanguagePicker } from "@/components/language-picker";
 import { requireUser } from "@/lib/auth-helpers";
 import { initials } from "@/lib/utils";
+import { getServerLocale } from "@/lib/i18n/server";
+import { translate } from "@/lib/i18n";
 
 export default async function AppLayout({
   children,
@@ -15,6 +18,9 @@ export default async function AppLayout({
 }) {
   const user = await requireUser();
   const displayName = user.name?.trim() || user.email;
+  const locale = await getServerLocale();
+  const t = (key: string, vars?: Record<string, string | number>) =>
+    translate(locale, key, vars);
 
   return (
     <div className="min-h-screen">
@@ -25,7 +31,7 @@ export default async function AppLayout({
 
         <div className="mt-8 px-2">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-ink-faint">
-            Workspace
+            {t("nav.workspace")}
           </p>
         </div>
         <div className="mt-2">
@@ -38,15 +44,18 @@ export default async function AppLayout({
               <Sparkles className="size-4" />
             </span>
             <p className="mt-2.5 text-xs font-bold leading-snug text-ink">
-              Ready for a quick round?
+              {t("layout.readyTitle")}
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-ink-soft">
-              Open a subject and hit Play. Right answers flow on their own.
+              {t("layout.readyBody")}
             </p>
           </div>
 
           <div className="rounded-2xl border border-line bg-white/80 p-2.5">
             <ThemePicker />
+            <div className="mt-2 border-t border-line pt-2">
+              <LanguagePicker />
+            </div>
           </div>
 
           <div className="flex items-center gap-2.5 rounded-2xl border border-line bg-white/80 p-2.5">

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/i18n-provider";
 import {
   applyTheme,
   DEFAULT_THEME,
@@ -58,6 +59,7 @@ function ColorField({
 export function ThemePicker() {
   const [open, setOpen] = useState(false);
   const [config, setConfig] = useState<ThemeConfig>(DEFAULT_THEME);
+  const t = useT();
 
   useEffect(() => {
     setConfig(loadTheme());
@@ -124,7 +126,7 @@ export function ThemePicker() {
         className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-ink-soft transition hover:bg-white hover:text-ink"
       >
         <Palette className="size-4.5" strokeWidth={2.2} />
-        <span className="flex-1 text-left">Theme</span>
+        <span className="flex-1 text-left">{t("nav.theme")}</span>
         <span className="flex items-center gap-1">
           <span
             className="size-3 rounded-full border border-line-strong"
@@ -142,8 +144,8 @@ export function ThemePicker() {
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Theme"
-        description="Choose the default theme or customize the brand colors."
+        title={t("theme.title")}
+        description={t("theme.description")}
         size="sm"
       >
         <div className="space-y-5">
@@ -158,9 +160,9 @@ export function ThemePicker() {
                   : "border-line hover:border-brand/40 hover:bg-brand-soft/20",
               )}
             >
-              <p className="text-sm font-extrabold text-ink">Default</p>
+              <p className="text-sm font-extrabold text-ink">{t("theme.default")}</p>
               <p className="mt-0.5 text-[11px] text-ink-soft">
-                D291BC / D291BC / FFDFD3
+                {t("theme.defaultDesc")}
               </p>
               <div className="mt-2 flex gap-1.5">
                 {[DEFAULT_THEME.brand, DEFAULT_THEME.brandStrong, DEFAULT_THEME.canvas].map(
@@ -186,9 +188,9 @@ export function ThemePicker() {
                   : "border-line hover:border-brand/40 hover:bg-brand-soft/20",
               )}
             >
-              <p className="text-sm font-extrabold text-ink">Custom</p>
+              <p className="text-sm font-extrabold text-ink">{t("theme.custom")}</p>
               <p className="mt-0.5 text-[11px] text-ink-soft">
-                Enter your own hex colors
+                {t("theme.customDesc")}
               </p>
               <div className="mt-2 flex gap-1.5">
                 {[colors.brand, colors.brandStrong, colors.canvas].map((c, i) => (
@@ -206,17 +208,17 @@ export function ThemePicker() {
           {isCustom ? (
             <div className="space-y-4">
               <ColorField
-                label="Brand"
+                label={t("theme.brand")}
                 value={config.brand}
                 onChange={(v) => updateColor("brand", v)}
               />
               <ColorField
-                label="Brand-strong"
+                label={t("theme.brandStrong")}
                 value={config.brandStrong}
                 onChange={(v) => updateColor("brandStrong", v)}
               />
               <ColorField
-                label="Canvas (background)"
+                label={t("theme.canvas")}
                 value={config.canvas}
                 onChange={(v) => updateColor("canvas", v)}
               />
@@ -226,7 +228,7 @@ export function ThemePicker() {
           <div className="flex items-center justify-between border-t border-line pt-4">
             <Button variant="ghost" size="sm" onClick={reset}>
               <RotateCcw className="size-4" />
-              Reset to default
+              {t("theme.reset")}
             </Button>
             <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
               Done

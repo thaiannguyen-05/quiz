@@ -4,6 +4,8 @@ import { Toaster } from "sonner";
 import { auth } from "@/auth";
 import { QueryProvider } from "@/lib/query/provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { I18nProvider } from "@/components/i18n-provider";
+import { getServerLocale } from "@/lib/i18n/server";
 
 import "./globals.css";
 
@@ -24,24 +26,27 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
+  const locale = await getServerLocale();
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-screen antialiased">
-        <ThemeProvider>
-          <QueryProvider key={session?.user?.email ?? "guest"}>
-            {children}
-            <Toaster
-              position="top-center"
-              richColors
-              closeButton
-              toastOptions={{ duration: 3500 }}
-            />
-          </QueryProvider>
-        </ThemeProvider>
+        <I18nProvider initialLocale={locale}>
+          <ThemeProvider>
+            <QueryProvider key={session?.user?.email ?? "guest"}>
+              {children}
+              <Toaster
+                position="top-center"
+                richColors
+                closeButton
+                toastOptions={{ duration: 3500 }}
+              />
+            </QueryProvider>
+          </ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );

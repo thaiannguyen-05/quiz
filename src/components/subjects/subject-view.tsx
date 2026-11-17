@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useT } from "@/components/i18n-provider";
 import { deleteSubject, renameSubject } from "@/actions/subjects";
 import { deleteQuestion } from "@/actions/questions";
 import { ImportDialog } from "@/components/import/import-dialog";
@@ -43,6 +44,7 @@ export function SubjectView({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const t = useT();
   const [editorOpen, setEditorOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<QuestionItem | null>(
@@ -73,7 +75,7 @@ export function SubjectView({
         variables.id,
         variables.name,
       );
-      toast.success("Subject renamed");
+      toast.success(t("subject.toasts.renamed"));
     },
   });
 
@@ -96,11 +98,11 @@ export function SubjectView({
           target,
         );
       }
-      toast.success("Question deleted");
+      toast.success(t("subject.toasts.questionDeleted"));
       setDeleteQuestionTarget(null);
     },
     onError: () => {
-      toast.error("Could not delete the question.");
+      toast.error(t("subject.toasts.deleteFailed"));
     },
   });
 
@@ -117,11 +119,11 @@ export function SubjectView({
         variables.id,
         questions.length,
       );
-      toast.success("Subject deleted");
+      toast.success(t("subject.toasts.deleted"));
       router.push(`/libraries/${library.id}`);
     },
     onError: () => {
-      toast.error("Could not delete the subject.");
+      toast.error(t("subject.toasts.subjectDeleteFailed"));
     },
   });
 
@@ -174,7 +176,7 @@ export function SubjectView({
               size="icon"
               onClick={() => setRenameOpen(true)}
               aria-label="Rename subject"
-              title="Rename subject"
+              title={t("subject.renameSubject")}
             >
               <Pencil className="size-4" />
             </Button>
@@ -206,11 +208,11 @@ export function SubjectView({
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => setImportOpen(true)}>
             <FileUp className="size-4" />
-            Import CSV
+            {t("subject.importCsv")}
           </Button>
           <Button variant="secondary" onClick={openAddQuestion}>
             <Plus className="size-4" />
-            Add question
+            {t("subject.addQuestion")}
           </Button>
           {questions.length > 0 ? (
             <Link
@@ -218,7 +220,7 @@ export function SubjectView({
               className={buttonClasses({ size: "md" })}
             >
               <Play className="size-4 fill-current" />
-              Play
+              {t("subject.play")}
             </Link>
           ) : (
             <span
@@ -228,7 +230,7 @@ export function SubjectView({
               })}
             >
               <Play className="size-4 fill-current" />
-              Play
+              {t("subject.play")}
             </span>
           )}
         </div>
@@ -242,7 +244,7 @@ export function SubjectView({
           onClick={() => setDeleteSubjectOpen(true)}
         >
           <Trash2 className="size-3.5" />
-          Delete subject
+          {t("subject.deleteSubject")}
         </Button>
       </div>
 
@@ -279,7 +281,7 @@ export function SubjectView({
       <NameDialog
         open={renameOpen}
         onClose={() => setRenameOpen(false)}
-        title="Rename subject"
+        title={t("subject.renameDialog.title")}
         label="Subject name"
         initialValue={subject.name}
         submitLabel="Save changes"
@@ -291,15 +293,17 @@ export function SubjectView({
       <ConfirmDialog
         open={deleteQuestionTarget !== null}
         onClose={() => setDeleteQuestionTarget(null)}
-        title="Delete this question?"
+        title={t("subject.deleteQuestionDialog.title")}
         description={
           deleteQuestionTarget
-            ? `“${deleteQuestionTarget.text.slice(0, 120)}${
-                deleteQuestionTarget.text.length > 120 ? "…" : ""
-              }” will be permanently deleted.`
+            ? t("subject.deleteQuestionDialog.description", {
+                text: `${deleteQuestionTarget.text.slice(0, 120)}${
+                  deleteQuestionTarget.text.length > 120 ? "…" : ""
+                }`,
+              })
             : ""
         }
-        confirmLabel="Delete question"
+        confirmLabel={t("subject.deleteQuestionDialog.confirm")}
         onConfirm={async () => {
           if (!deleteQuestionTarget) return;
           try {
@@ -307,7 +311,7 @@ export function SubjectView({
               questionId: deleteQuestionTarget.id,
             });
           } catch {
-            toast.error("Could not delete the question.");
+            toast.error(t("subject.toasts.deleteFailed"));
           }
         }}
       />
@@ -315,16 +319,18 @@ export function SubjectView({
       <ConfirmDialog
         open={deleteSubjectOpen}
         onClose={() => setDeleteSubjectOpen(false)}
-        title="Delete this subject?"
-        description={`“${subject.name}” and its ${questions.length} question${
-          questions.length === 1 ? "" : "s"
-        } will be permanently deleted.`}
-        confirmLabel="Delete subject"
+        title={t("subject.deleteSubjectDialog.title")}
+        description={t("subject.deleteSubjectDialog.description", {
+          name: subject.name,
+          count: questions.length,
+          plural: questions.length === 1 ? "" : "s",
+        })}
+        confirmLabel={t("subject.deleteSubjectDialog.confirm")}
         onConfirm={async () => {
           try {
             await deleteSubjectMutation.mutateAsync({ id: subject.id });
           } catch {
-            toast.error("Could not delete the subject.");
+            toast.error(t("subject.toasts.subjectDeleteFailed"));
           }
         }}
       />

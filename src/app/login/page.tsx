@@ -6,6 +6,9 @@ import { auth } from "@/auth";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { isGoogleConfigured } from "@/lib/allowlist";
+import { getServerLocale } from "@/lib/i18n/server";
+import { translate } from "@/lib/i18n";
+import { LanguagePicker } from "@/components/language-picker";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -62,9 +65,15 @@ export default async function LoginPage({
     : null;
 
   const googleEnabled = isGoogleConfigured();
+  const locale = await getServerLocale();
+  const t = (key: string, vars?: Record<string, string | number>) =>
+    translate(locale, key, vars);
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      <div className="absolute right-4 top-4 z-10">
+        <LanguagePicker compact />
+      </div>
       <div className="pointer-events-none absolute -left-32 top-[-10%] size-[28rem] rounded-full bg-[#d9d2ff]/70 blur-3xl" />
       <div className="pointer-events-none absolute -right-24 bottom-[-12%] size-[24rem] rounded-full bg-[#c9f2e5]/80 blur-3xl" />
 
@@ -83,10 +92,10 @@ export default async function LoginPage({
 
           <div className="mt-8 md:mt-0">
             <h2 className="text-2xl font-extrabold tracking-[-0.03em]">
-              Welcome back
+              {t("login.title")}
             </h2>
             <p className="mt-1.5 text-sm text-ink-soft">
-              Sign in to open your quiz library.
+              {t("login.subtitle")}
             </p>
           </div>
 
@@ -109,17 +118,14 @@ export default async function LoginPage({
                   className="w-full"
                 >
                   <GoogleIcon />
-                  Continue with Google
+                  {t("login.googleButton")}
                 </Button>
               </form>
             ) : (
               <div className="rounded-2xl border border-dashed border-line-strong bg-[#fbfaff] px-4 py-3 text-xs leading-relaxed text-ink-soft">
                 <span className="font-bold text-ink">
-                  Google sign-in is not configured.
-                </span>{" "}
-                Add <code className="font-mono">AUTH_GOOGLE_ID</code> and{" "}
-                <code className="font-mono">AUTH_GOOGLE_SECRET</code> to{" "}
-                <code className="font-mono">.env.local</code> to enable it.
+                  {t("login.notConfigured")}
+                </span>
               </div>
             )}
           </div>

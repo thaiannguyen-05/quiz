@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation";
 import { BookOpen } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/i18n-provider";
 
 export function AppNav() {
   const pathname = usePathname();
+  const t = useT();
   const active = pathname === "/libraries" || pathname.startsWith("/libraries/");
 
   return (
@@ -22,7 +24,7 @@ export function AppNav() {
         )}
       >
         <BookOpen className="size-4.5" strokeWidth={2.2} />
-        Libraries
+        {t("nav.libraries")}
         {active ? (
           <span className="ml-auto size-1.5 rounded-full bg-brand" />
         ) : null}

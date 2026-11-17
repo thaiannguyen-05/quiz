@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useT } from "@/components/i18n-provider";
 import { commitImport } from "@/actions/import";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ function ImportDialogContent({
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const t = useT();
   const [step, setStep] = useState<"pick" | "preview">("pick");
   const [libraryId, setLibraryId] = useState(defaultLibraryId);
   const [file, setFile] = useState<File | null>(null);
@@ -124,9 +126,10 @@ function ImportDialogContent({
           mode: variables.mode,
         });
         toast.success(
-          `Imported ${variables.questions.length} question${
-            variables.questions.length === 1 ? "" : "s"
-          } into “${result.subjectName}”`,
+          t("import.success", {
+            count: variables.questions.length,
+            plural: variables.questions.length === 1 ? "" : "s",
+          }) + ` “${result.subjectName}”`,
         );
         onClose();
         if (!currentSubjectId || result.subjectId !== currentSubjectId) {
@@ -148,7 +151,7 @@ function ImportDialogContent({
       toast.error(result.error);
     },
     onError: () => {
-      toast.error("The import failed. Please try again.");
+      toast.error(t("import.failed"));
     },
   });
 
@@ -157,7 +160,7 @@ function ImportDialogContent({
   async function handleFile(nextFile: File | undefined) {
     if (!nextFile) return;
     if (!nextFile.name.toLowerCase().endsWith(".csv")) {
-      toast.error("Please choose a .csv file.");
+      toast.error(t("import.noFile"));
       return;
     }
 
@@ -180,7 +183,7 @@ function ImportDialogContent({
       );
       setStep("preview");
     } catch {
-      toast.error("Could not read that file. Try exporting the CSV again.");
+      toast.error(t("import.readError"));
     } finally {
       setParsing(false);
     }
@@ -217,11 +220,11 @@ function ImportDialogContent({
 
   function submitImport(mode?: "new" | "replace" | "append") {
     if (!parseResult || selectedQuestions.length === 0) {
-      toast.error("Select at least one valid question.");
+      toast.error(t("import.emptySelection"));
       return;
     }
     if (!subjectName.trim()) {
-      toast.error("Give the subject a name.");
+      toast.error(t("import.nameRequired"));
       return;
     }
 
@@ -244,8 +247,8 @@ function ImportDialogContent({
     <Modal
       open
       onClose={committing ? () => undefined : onClose}
-      title="Import questions from CSV"
-      description="Blooket-style files work out of the box. Review every row before it is saved."
+      title={t("import.title")}
+      description={t("import.description")}
       size="xl"
       dismissible={!committing}
     >
