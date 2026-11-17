@@ -40,6 +40,11 @@ export function LateNightReminder() {
       description="Muộn rồi, nghỉ ngơi một chút nhé."
       size="sm"
     >
+      <img
+        src="/late-night-reminder.png"
+        alt="Nhắc nhở"
+        className="mb-4 w-full rounded-2xl object-cover"
+      />
       <p className="text-base font-semibold leading-relaxed text-ink">
         Có bận có nhiều deadline thì cũng nên ăn và ngủ sớm nhé
       </p>
