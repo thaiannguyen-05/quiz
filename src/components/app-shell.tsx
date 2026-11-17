@@ -49,8 +49,8 @@ export function AppShell({
     <div className="min-h-screen">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-white/80 bg-white/65 px-4 py-6 backdrop-blur-xl transition-[width,transform] duration-200 lg:flex ${
-          collapsed ? "w-0 overflow-hidden border-r-0 px-0" : "w-[264px]"
+        className={`fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col border-r border-white/80 bg-white/65 px-4 py-6 backdrop-blur-xl transition-transform duration-200 lg:flex ${
+          collapsed ? "-translate-x-full" : "translate-x-0"
         }`}
       >
         <div className="flex items-center justify-between px-2">
