@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { QueryProvider } from "@/lib/query/provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/components/i18n-provider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { getServerLocale } from "@/lib/i18n/server";
 
 import "./globals.css";
@@ -44,6 +45,7 @@ export default async function RootLayout({
                 closeButton
                 toastOptions={{ duration: 3500 }}
               />
+              <SpeedInsights />
             </QueryProvider>
           </ThemeProvider>
         </I18nProvider>
